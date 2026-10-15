@@ -10,20 +10,23 @@
 	},
 	"license": "MIT",
 	"repository": {
-		"type": "extension-store",
-		"url": ""
+		"type": "github",
+		"url": "https://github.com/totok22/eda-sch-beautify"
 	},
-	"categories": "Other",
+	"categories": [
+		"Schematic"
+	],
 	"keywords": [
 		"Tool",
 		"Schematic",
 		"SVG"
 	],
 	"images": {
-		"logo": "./images/logo.png"
+		"logo": "./images/logo.png",
+		"banner": "./images/banner.jpg"
 	},
-	"homepage": "",
-	"bugs": "",
+	"homepage": "https://github.com/totok22/eda-sch-beautify",
+	"bugs": "https://github.com/totok22/eda-sch-beautify/issues",
 	"activationEvents": {},
 	"entry": "./dist/index",
 	"dependentExtensions": {},

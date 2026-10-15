@@ -16,7 +16,7 @@
 ![跨线弧前后对比（上：原图，下：处理后）](docs/screenshots/hop_before_after.png)
 ![整页前后对比：未连接标记、节点颜色、中文宋体](docs/screenshots/markers_font_before_after.png)
 
-示例原理图：[`examples/example.svg`](examples/example.svg)（虚构电路，由 `examples/gen_example.py` 生成）
+示例原理图：[`examples/example.svg`](examples/example.svg)（嘉立创EDA专业版直接导出的 SVG 示例）
 
 ## 两种用法
 
