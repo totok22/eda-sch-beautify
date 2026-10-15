@@ -1,0 +1,15 @@
+node_modules/
+extension/dist/
+extension/build/dist/
+extension/iframe/panel.html
+*.eext
+*.tsbuildinfo
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+# 用户原理图样本默认不入库
+samples/
+*.svg
+!docs/**/*.svg
+!examples/*.svg

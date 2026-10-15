@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-Hans" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<title>原理图美化导出</title>
+<style>
+ :root{color-scheme:light;--bg:#ffffff;--fg:#1f2328;--muted:#59636e;--border:#c9ced4;--field:#ffffff;--fieldfg:#1f2328;--btn:#f3f4f6;--btnh:#e5e7eb;--accent:#2f6feb;--err:#c62828;--chk1:#eeeeee;--chk2:#ffffff}
+ html[data-theme=dark]{color-scheme:dark;--bg:#1e1f22;--fg:#e6e6e6;--muted:#a8adb5;--border:#4a4d52;--field:#2b2d31;--fieldfg:#e6e6e6;--btn:#34363b;--btnh:#41444a;--accent:#5b9bff;--err:#ff6b6b;--chk1:#2a2b2e;--chk2:#323337}
+ @media (prefers-color-scheme: dark){html:not([data-theme=light]){color-scheme:dark;--bg:#1e1f22;--fg:#e6e6e6;--muted:#a8adb5;--border:#4a4d52;--field:#2b2d31;--fieldfg:#e6e6e6;--btn:#34363b;--btnh:#41444a;--accent:#5b9bff;--err:#ff6b6b;--chk1:#2a2b2e;--chk2:#323337}}
+ html,body{background:var(--bg);color:var(--fg)}
+ body{font:13px/1.5 system-ui,"Microsoft YaHei",sans-serif;margin:8px}
+ fieldset{border:1px solid var(--border);margin:0 0 6px;padding:4px 8px;color:var(--fg)} legend{color:var(--muted)}
+ label{margin-right:10px;white-space:nowrap;color:var(--fg)}
+ input[type=number],select{background:var(--field);color:var(--fieldfg);border:1px solid var(--border);border-radius:3px;padding:1px 4px}
+ input[type=number]{width:60px} option{background:var(--field);color:var(--fieldfg)}
+ input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+ button{background:var(--btn);color:var(--fg);border:1px solid var(--border);border-radius:4px;margin-right:6px;padding:3px 10px;cursor:pointer}
+ button:hover{background:var(--btnh)}
+ #toolbar{display:flex;align-items:center;gap:4px;margin:2px 0 4px;color:var(--muted)} #toolbar button{padding:1px 8px;margin:0}
+ #wrap{position:relative;height:400px;overflow:hidden;border:1px solid var(--border);background:repeating-conic-gradient(var(--chk1) 0 25%,var(--chk2) 0 50%) 0 0/16px 16px;user-select:none;cursor:crosshair}
+ #layer{position:absolute;left:0;top:0;transform-origin:0 0}
+ #preview{display:block;max-width:none;background:#fff}
+ #selbox{position:absolute;border:2px dashed #e33;background:rgba(255,0,0,.08);pointer-events:none;display:none;box-sizing:border-box}
+ #status{margin-top:4px;color:var(--fg)} #stats{color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<fieldset><legend>跨线弧 / 美化</legend>
+ <label>半径 <input id="radius" type="number" min="0" step="0.5"> (0=自动)</label>
+ <label>相近交叉 <select id="close"><option value="shrink">等大缩小</option><option value="merge">合并长弧</option></select></label>
+ <label><input id="jc" type="checkbox">节点跟随导线颜色</label>
+ <label><input id="rm" type="checkbox">删除未连接标记</label>
+ <label><input id="font" type="checkbox">中文用宋体</label>
+ <label>导出配色 <select id="etheme"><option value="Default">默认（跟随 EDA）</option><option value="Black on White">白底黑线</option><option value="White on Black">黑底白线</option></select></label>
+</fieldset>
+<fieldset><legend>导出范围</legend>
+ <label><input type="radio" name="region" value="page">整页</label>
+ <label><input type="radio" name="region" value="selection">选中图元 <button id="btnSel" type="button">读取选中</button></label>
+ <label><input type="radio" name="region" value="manual" id="rManual">手动框选</label>
+ <label>边距 <input id="margin" type="number" min="0" step="5"></label>
+</fieldset>
+<fieldset><legend>PNG</legend>
+ <label>倍率 <select id="scale"><option value="1">1x</option><option value="2">2x</option><option value="4">4x</option></select></label>
+ <label>背景 <select id="bg"><option value="transparent">透明</option><option value="white">白色</option><option value="paper">KiCad 纸色 #F5F4EF</option></select></label>
+</fieldset>
+<div id="toolbar">
+ <button id="zOut" title="缩小">−</button><span id="zoomLabel" style="min-width:44px;text-align:center">100%</span><button id="zIn" title="放大">+</button>
+ <button id="zFit">适应</button><button id="z100">100%</button>
+ <label style="margin-left:8px">鼠标拖动 <select id="mode"><option value="select">框选（手动框选时）</option><option value="pan">平移</option></select></label>
+ <span>滚轮缩放 · 按住空格或中键拖动平移</span>
+</div>
+<div id="wrap"><div id="layer"><img id="preview" alt=""><div id="selbox"></div></div></div>
+<div id="stats"></div>
+<div style="margin-top:6px"><button id="btnSvg">导出 SVG</button><button id="btnPng">导出 PNG</button><button id="btnReload">重新读取图页</button></div>
+<div id="status">加载中…</div>
+<script src="panel.js"></script>
+</body>
+</html>

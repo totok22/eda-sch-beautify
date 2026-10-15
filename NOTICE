@@ -1,0 +1,4 @@
+extension/build/, extension/config/ 及 extension 的工程骨架（eslint/tsconfig/locales/images 等）来自
+嘉立创EDA 官方扩展开发工具组 easyeda-api-sdk（https://github.com/easyeda/easyeda-api-sdk），
+按 Apache License 2.0 授权，版权归 JLCEDA 所有。其余代码按本仓库 MIT 许可证授权。
+“嘉立创EDA”“EasyEDA”为其所有者的商标，本项目仅在功能描述中使用。
