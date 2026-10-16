@@ -4,55 +4,516 @@
 <meta charset="utf-8" />
 <title>原理图美化导出</title>
 <style>
- :root{color-scheme:light;--bg:#ffffff;--fg:#1f2328;--muted:#59636e;--border:#c9ced4;--field:#ffffff;--fieldfg:#1f2328;--btn:#f3f4f6;--btnh:#e5e7eb;--accent:#2f6feb;--err:#c62828;--chk1:#eeeeee;--chk2:#ffffff}
- html[data-theme=dark]{color-scheme:dark;--bg:#1e1f22;--fg:#e6e6e6;--muted:#a8adb5;--border:#4a4d52;--field:#2b2d31;--fieldfg:#e6e6e6;--btn:#34363b;--btnh:#41444a;--accent:#5b9bff;--err:#ff6b6b;--chk1:#2a2b2e;--chk2:#323337}
- @media (prefers-color-scheme: dark){html:not([data-theme=light]){color-scheme:dark;--bg:#1e1f22;--fg:#e6e6e6;--muted:#a8adb5;--border:#4a4d52;--field:#2b2d31;--fieldfg:#e6e6e6;--btn:#34363b;--btnh:#41444a;--accent:#5b9bff;--err:#ff6b6b;--chk1:#2a2b2e;--chk2:#323337}}
- html,body{background:var(--bg);color:var(--fg)}
- body{font:13px/1.5 system-ui,"Microsoft YaHei",sans-serif;margin:8px}
- fieldset{border:1px solid var(--border);margin:0 0 6px;padding:4px 8px;color:var(--fg)} legend{color:var(--muted)}
- label{margin-right:10px;white-space:nowrap;color:var(--fg)}
- input[type=number],select{background:var(--field);color:var(--fieldfg);border:1px solid var(--border);border-radius:3px;padding:1px 4px}
- input[type=number]{width:60px} option{background:var(--field);color:var(--fieldfg)}
- input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
- button{background:var(--btn);color:var(--fg);border:1px solid var(--border);border-radius:4px;margin-right:6px;padding:3px 10px;cursor:pointer}
- button:hover{background:var(--btnh)}
- #toolbar{display:flex;align-items:center;gap:4px;margin:2px 0 4px;color:var(--muted)} #toolbar button{padding:1px 8px;margin:0}
- #wrap{position:relative;height:400px;overflow:hidden;border:1px solid var(--border);background:repeating-conic-gradient(var(--chk1) 0 25%,var(--chk2) 0 50%) 0 0/16px 16px;user-select:none;cursor:crosshair}
- #layer{position:absolute;left:0;top:0;transform-origin:0 0}
- #preview{display:block;max-width:none;background:#fff}
- #selbox{position:absolute;border:2px dashed #e33;background:rgba(255,0,0,.08);pointer-events:none;display:none;box-sizing:border-box}
- #status{margin-top:4px;color:var(--fg)} #stats{color:var(--muted);font-size:12px}
+  :root {
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --fg: #0f172a;
+    --muted: #64748b;
+    --field-bg: #ffffff;
+    --field-border: #cbd5e1;
+    --field-fg: #0f172a;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-light: #eff6ff;
+    --accent-border: #bfdbfe;
+    --btn-sec-bg: #ffffff;
+    --btn-sec-border: #cbd5e1;
+    --btn-sec-hover: #f1f5f9;
+    --err: #dc2626;
+    --tag-bg: #f1f5f9;
+    --tag-border: #e2e8f0;
+    --chk1: #e2e8f0;
+    --chk2: #ffffff;
+    --sel-border: #2563eb;
+    --sel-bg: rgba(37, 99, 235, 0.08);
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  }
+  html[data-theme=dark] {
+    --bg: #141517;
+    --card-bg: #1c1d21;
+    --card-border: #2d3039;
+    --fg: #f1f5f9;
+    --muted: #94a3b8;
+    --field-bg: #24272e;
+    --field-border: #3b404d;
+    --field-fg: #f1f5f9;
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --accent-light: rgba(59, 130, 246, 0.15);
+    --accent-border: #2563eb;
+    --btn-sec-bg: #24272e;
+    --btn-sec-border: #373c47;
+    --btn-sec-hover: #2e323b;
+    --err: #ef4444;
+    --tag-bg: #23262e;
+    --tag-border: #323742;
+    --chk1: #24262c;
+    --chk2: #1b1c20;
+    --sel-border: #3b82f6;
+    --sel-bg: rgba(59, 130, 246, 0.12);
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-theme=light]) {
+      --bg: #141517;
+      --card-bg: #1c1d21;
+      --card-border: #2d3039;
+      --fg: #f1f5f9;
+      --muted: #94a3b8;
+      --field-bg: #24272e;
+      --field-border: #3b404d;
+      --field-fg: #f1f5f9;
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --accent-light: rgba(59, 130, 246, 0.15);
+      --accent-border: #2563eb;
+      --btn-sec-bg: #24272e;
+      --btn-sec-border: #373c47;
+      --btn-sec-hover: #2e323b;
+      --err: #ef4444;
+      --tag-bg: #23262e;
+      --tag-border: #323742;
+      --chk1: #24262c;
+      --chk2: #1b1c20;
+      --sel-border: #3b82f6;
+      --sel-bg: rgba(59, 130, 246, 0.12);
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; padding: 0; background: var(--bg); color: var(--fg); overflow: hidden; }
+  body {
+    font: 12px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+  }
+
+  /* 顶部配置面板区 */
+  .panel-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 8px 10px 4px;
+    flex-shrink: 0;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 6px 10px;
+    box-shadow: var(--shadow-sm);
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .row + .row {
+    margin-top: 5px;
+  }
+
+  /* 输入控件与下拉菜单 */
+  .field-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+  }
+  input[type=number], select {
+    background: var(--field-bg);
+    color: var(--field-fg);
+    border: 1px solid var(--field-border);
+    border-radius: 5px;
+    padding: 2px 6px;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input[type=number]:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-light);
+  }
+  input[type=number] { width: 52px; text-align: center; }
+  option { background: var(--field-bg); color: var(--field-fg); }
+
+  /* 胶囊复选框 (Checkbox Tag / Chip) */
+  .chip-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: var(--tag-bg);
+    border: 1px solid var(--tag-border);
+    cursor: pointer;
+    font-size: 11.5px;
+    color: var(--fg);
+    transition: all 0.15s;
+  }
+  .chip-check:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-light);
+  }
+  .chip-check input[type=checkbox] {
+    margin: 0;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* 分段单选器 (Segmented Radio) */
+  .segmented {
+    display: inline-flex;
+    background: var(--tag-bg);
+    border: 1px solid var(--tag-border);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .segmented label {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .segmented label input[type=radio] { display: none; }
+  .segmented label:has(input:checked) {
+    background: var(--card-bg);
+    color: var(--fg);
+    font-weight: 500;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* 基础按钮 */
+  button {
+    font-family: inherit;
+    font-size: 12px;
+    border-radius: 5px;
+    padding: 3px 9px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.15s;
+  }
+  .btn-sec {
+    background: var(--btn-sec-bg);
+    color: var(--fg);
+    border: 1px solid var(--btn-sec-border);
+  }
+  .btn-sec:hover {
+    background: var(--btn-sec-hover);
+    border-color: var(--muted);
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #ffffff;
+    border: 1px solid transparent;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+  }
+  .btn-primary:hover {
+    background: var(--accent-hover);
+    box-shadow: 0 2px 5px rgba(37, 99, 235, 0.4);
+  }
+
+  /* 画布主体与浮动工具条 */
+  .viewport-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--card-border);
+    overflow: hidden;
+    position: relative;
+    background: var(--card-bg);
+    min-height: 220px;
+  }
+  .floating-toolbar {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    box-shadow: var(--shadow-md);
+  }
+  html[data-theme=dark] .floating-toolbar {
+    background: rgba(28, 29, 33, 0.85);
+    border: 1px solid rgba(45, 48, 57, 0.8);
+  }
+  .tb-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .tb-btn {
+    background: var(--btn-sec-bg);
+    border: 1px solid var(--btn-sec-border);
+    color: var(--fg);
+    padding: 2px 7px;
+    font-size: 11px;
+    border-radius: 4px;
+    line-height: 1.3;
+  }
+  .tb-btn:hover { background: var(--btn-sec-hover); }
+  .kbd-tip {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  kbd {
+    background: var(--tag-bg);
+    border: 1px solid var(--tag-border);
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 10px;
+    color: var(--fg);
+  }
+
+  /* 画布与缩放视口 */
+  #wrap {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: repeating-conic-gradient(var(--chk1) 0 25%, var(--chk2) 0 50%) 0 0 / 16px 16px;
+    user-select: none;
+    cursor: crosshair;
+  }
+  #layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+  }
+  #preview {
+    display: block;
+    max-width: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  }
+  #selbox {
+    position: absolute;
+    border: 2px dashed var(--sel-border);
+    background: var(--sel-bg);
+    pointer-events: none;
+    display: none;
+    box-sizing: border-box;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6);
+  }
+  #selbox::after {
+    content: '';
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    width: 6px;
+    height: 6px;
+    background: var(--sel-border);
+    border: 1px solid #ffffff;
+  }
+
+  /* 底部状态与操作栏 */
+  .panel-footer {
+    padding: 6px 10px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-shrink: 0;
+    border-top: 1px solid var(--card-border);
+    background: var(--card-bg);
+  }
+  .status-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+  }
+  .status-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+    flex-shrink: 0;
+  }
+  .dot.busy { background: #f59e0b; box-shadow: 0 0 6px rgba(245, 158, 11, 0.6); }
+  .dot.err { background: #ef4444; box-shadow: 0 0 6px rgba(239, 68, 68, 0.6); }
+  #status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+  #stats {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 440px;
+  }
+  .actions-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
-<fieldset><legend>跨线弧 / 美化</legend>
- <label>半径 <input id="radius" type="number" min="0" step="0.5"> (0=自动)</label>
- <label>相近交叉 <select id="close"><option value="shrink">等大缩小</option><option value="merge">合并长弧</option></select></label>
- <label><input id="jc" type="checkbox">节点跟随导线颜色</label>
- <label><input id="rm" type="checkbox">删除未连接标记</label>
- <label><input id="font" type="checkbox">中文用宋体</label>
- <label>导出配色 <select id="etheme"><option value="Default">默认（跟随 EDA）</option><option value="Black on White">白底黑线</option><option value="White on Black">黑底白线</option></select></label>
-</fieldset>
-<fieldset><legend>导出范围</legend>
- <label><input type="radio" name="region" value="page">整页</label>
- <label><input type="radio" name="region" value="selection">选中图元 <button id="btnSel" type="button">读取选中</button></label>
- <label><input type="radio" name="region" value="manual" id="rManual">手动框选</label>
- <label>边距 <input id="margin" type="number" min="0" step="5"></label>
-</fieldset>
-<fieldset><legend>PNG</legend>
- <label>倍率 <select id="scale"><option value="1">1x</option><option value="2">2x</option><option value="4">4x</option></select></label>
- <label>背景 <select id="bg"><option value="transparent">透明</option><option value="white">白色</option><option value="paper">KiCad 纸色 #F5F4EF</option></select></label>
-</fieldset>
-<div id="toolbar">
- <button id="zOut" title="缩小">−</button><span id="zoomLabel" style="min-width:44px;text-align:center">100%</span><button id="zIn" title="放大">+</button>
- <button id="zFit">适应</button><button id="z100">100%</button>
- <label style="margin-left:8px">鼠标拖动 <select id="mode"><option value="select">框选（手动框选时）</option><option value="pan">平移</option></select></label>
- <span>滚轮缩放 · 按住空格或中键拖动平移</span>
+
+<div class="panel-header">
+  <!-- 美化参数卡片 -->
+  <div class="card">
+    <div class="card-title">跨线弧与美化参数</div>
+    <div class="row">
+      <div class="field-group">
+        <span>跨线半径</span>
+        <input id="radius" type="number" min="0" step="0.5" title="0 = 自动（3×线宽）">
+        <span style="color:var(--muted);font-size:11px">(0=自动)</span>
+      </div>
+      <div class="field-group">
+        <span>相近交叉</span>
+        <select id="close">
+          <option value="shrink">等大缩小</option>
+          <option value="merge">合并长弧</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <span>导出配色</span>
+        <select id="etheme">
+          <option value="Default">默认（跟随 EDA）</option>
+          <option value="Black on White">白底黑线</option>
+          <option value="White on Black">黑底白线</option>
+        </select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <label class="chip-check"><input id="jc" type="checkbox">节点随导线颜色</label>
+      <label class="chip-check"><input id="rm" type="checkbox">清理未连接标记</label>
+      <label class="chip-check"><input id="font" type="checkbox">中文宋体 / 英文衬线</label>
+    </div>
+  </div>
+
+  <!-- 导出选项卡片 -->
+  <div class="card">
+    <div class="card-title">导出区域与输出格式</div>
+    <div class="row">
+      <span style="font-size:11.5px;color:var(--muted)">导出范围:</span>
+      <div class="segmented">
+        <label><input type="radio" name="region" value="page">整页</label>
+        <label><input type="radio" name="region" value="selection">选中图元</label>
+        <label><input type="radio" name="region" value="manual" id="rManual">手动框选</label>
+      </div>
+      <button id="btnSel" type="button" class="btn-sec" style="padding:1px 6px;font-size:11px">读取选中</button>
+      <div class="field-group" style="margin-left:auto">
+        <span>边距</span>
+        <input id="margin" type="number" min="0" step="5" style="width:44px">
+      </div>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <div class="field-group">
+        <span>PNG 倍率</span>
+        <select id="scale">
+          <option value="1">1x 标清</option>
+          <option value="2">2x 高清</option>
+          <option value="4">4x 超清</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <span>背景底色</span>
+        <select id="bg">
+          <option value="paper">KiCad 纸色 (#F5F4EF)</option>
+          <option value="white">纯白 (#FFFFFF)</option>
+          <option value="transparent">完全透明 (无底色)</option>
+        </select>
+      </div>
+    </div>
+  </div>
 </div>
-<div id="wrap"><div id="layer"><img id="preview" alt=""><div id="selbox"></div></div></div>
-<div id="stats"></div>
-<div style="margin-top:6px"><button id="btnSvg">导出 SVG</button><button id="btnPng">导出 PNG</button><button id="btnReload">重新读取图页</button></div>
-<div id="status">加载中…</div>
+
+<!-- 交互画板视口 -->
+<div class="viewport-wrapper">
+  <div class="floating-toolbar">
+    <div class="tb-group">
+      <button id="zOut" class="tb-btn" title="缩小">−</button>
+      <span id="zoomLabel" style="min-width:40px;text-align:center;font-size:11px;font-weight:600">100%</span>
+      <button id="zIn" class="tb-btn" title="放大">+</button>
+      <button id="zFit" class="tb-btn">适应</button>
+      <button id="z100" class="tb-btn">100%</button>
+      <span style="height:12px;width:1px;background:var(--card-border);margin:0 4px"></span>
+      <div class="field-group">
+        <span style="font-size:11px;color:var(--muted)">拖动:</span>
+        <select id="mode" style="padding:1px 4px;font-size:11px">
+          <option value="select">框选模式</option>
+          <option value="pan">平移模式</option>
+        </select>
+      </div>
+    </div>
+    <div class="kbd-tip">
+      <kbd>滚轮</kbd> 缩放 · 按住 <kbd>空格</kbd> 或中键平移
+    </div>
+  </div>
+
+  <div id="wrap">
+    <div id="layer">
+      <img id="preview" alt="">
+      <div id="selbox"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 底部控制与状态栏 -->
+<div class="panel-footer">
+  <div class="status-block">
+    <div class="status-main">
+      <span class="dot" id="statusDot"></span>
+      <span id="status">正在加载原理图…</span>
+    </div>
+    <div id="stats"></div>
+  </div>
+  <div class="actions-group">
+    <button id="btnReload" class="btn-sec" type="button" title="从当前原理图重新抓取最新图页">重新读取图页</button>
+    <button id="btnSvg" class="btn-sec" type="button">导出 SVG</button>
+    <button id="btnPng" class="btn-primary" type="button">导出 PNG 图片</button>
+  </div>
+</div>
+
 <script src="panel.js"></script>
 </body>
 </html>

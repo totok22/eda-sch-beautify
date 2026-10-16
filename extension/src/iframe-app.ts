@@ -1,17 +1,20 @@
 /** 原理图美化导出面板（运行在扩展 IFrame 中，拥有完整 DOM + Canvas） */
-import { bboxForIds, cropSvg, defaultOptions, type HopoverOptions, processSvg, type Rect } from './sch-beautify-core';
+import { applyBackground, bboxForIds, cropSvg, defaultOptions, type HopoverOptions, processSvg, type Rect } from './sch-beautify-core';
 
 declare const eda: any;
 const E: any = (typeof eda !== 'undefined') ? eda : (window.parent as any)?.eda;
 const $ = (id: string) => document.getElementById(id) as any;
 
 interface Settings { radius: number; scale: number; bg: 'transparent' | 'white' | 'paper'; region: 'page' | 'selection' | 'manual'; margin: number; junctionColor: boolean; removeMarkers: boolean; font: boolean; close: 'shrink' | 'merge'; exportTheme: 'Default' | 'Black on White' | 'White on Black' }
-const DEF: Settings = { radius: 0, scale: 4, bg: 'white', region: 'page', margin: 10, junctionColor: true, removeMarkers: true, font: true, close: 'shrink', exportTheme: 'Default' };
+const DEF: Settings = { radius: 0, scale: 4, bg: 'paper', region: 'page', margin: 10, junctionColor: true, removeMarkers: true, font: true, close: 'shrink', exportTheme: 'Default' };
 const BG: Record<string, string | null> = { transparent: null, white: '#FFFFFF', paper: '#F5F4EF' }; // KiCad 默认原理图背景 245,244,239
 
 let S: Settings = { ...DEF }; let srcSvg = ''; let outSvg = ''; let manual: Rect | null = null; let selRect: Rect | null = null; let fileBase = 'schematic';
 
-function log(msg: string, err = false) { const el = $('status'); el.textContent = msg; el.style.color = err ? 'var(--err)' : 'var(--fg)'; }
+function log(msg: string, err = false, busy = false) {
+	const el = $('status'); if (el) { el.textContent = msg; el.style.color = err ? 'var(--err)' : 'var(--fg)'; }
+	const dot = $('statusDot'); if (dot) { dot.className = `dot${err ? ' err' : busy ? ' busy' : ''}`; }
+}
 function loadSettings() {
 	try { const c = E?.sys_Storage?.getExtensionAllUserConfigs?.(); if (c && c.hopover) S = { ...DEF, ...c.hopover }; }
 	catch {}
@@ -41,7 +44,11 @@ function options(): Partial<HopoverOptions> {
 	return { r: S.radius > 0 ? S.radius : undefined, close: S.close, junctionColor: S.junctionColor ? 'wire' : 'keep', removeEndMarkers: S.removeMarkers, font: S.font ? defaultOptions.font : null, fontMode: 'split' };
 }
 function region(): Rect | null { return S.region === 'manual' ? manual : S.region === 'selection' ? selRect : null; }
-function finalSvg(): string { const r = region(); return r ? cropSvg(outSvg, r, S.region === 'manual' ? 0 : S.margin) : outSvg; }
+function finalSvg(): string {
+	const r = region();
+	const cropped = r ? cropSvg(outSvg, r, S.region === 'manual' ? 0 : S.margin) : outSvg;
+	return applyBackground(cropped, BG[S.bg]);
+}
 
 // ---------- 预览：缩放 / 平移 ----------
 let zoom = 1; let panX = 0; let panY = 0; let lastSrc = ''; let fitted = false;
@@ -60,7 +67,8 @@ function zoomAt(f: number, cx?: number, cy?: number) {
 }
 function drawPreview() {
 	const img = $('preview'); const bw = baseWidth(outSvg); const vb = viewBox(outSvg);
-	if (lastSrc !== outSvg) { img.src = toDataUri(outSvg); lastSrc = outSvg; }
+	const previewSvg = applyBackground(outSvg, BG[S.bg]);
+	if (lastSrc !== previewSvg) { img.src = toDataUri(previewSvg); lastSrc = previewSvg; }
 	img.style.background = BG[S.bg] ?? 'transparent';
 	img.style.width = `${bw}px`; img.style.height = `${bw * vb[3] / vb[2]}px`;
 	if (!fitted) { fitted = true; requestAnimationFrame(fit); }
@@ -85,7 +93,7 @@ async function exportSvgFromEda(): Promise<string> {
 async function refresh() {
 	readForm(); await saveSettings();
 	const res = processSvg(srcSvg, options()); outSvg = res.svg; const s = res.stats;
-	$('stats').textContent = `交叉 ${s.crossings}，画弧 ${s.arcs}（合并 ${s.merged}），跳过 ${s.skipped.length}；删除未连接标记 ${s.markersRemoved}；节点改色 ${s.dotsRecolored}（冲突 ${s.colorConflicts.length}）；中文改宋体 ${s.fontChanged} 处${s.backgroundRemoved ? `；移除导出自带背景 ${s.backgroundRemoved}` : ''}`;
+	$('stats').textContent = `交叉 ${s.crossings} · 画弧 ${s.arcs}${s.merged ? ` (合并 ${s.merged})` : ''} · 清理未连接标记 ${s.markersRemoved} · 节点改色 ${s.dotsRecolored} · 中文宋体 ${s.fontChanged} 处${s.backgroundRemoved ? ` · 清除原底板 ${s.backgroundRemoved}` : ''}`;
 	drawPreview();
 }
 
@@ -187,14 +195,14 @@ async function main() {
 	for (const id of ['radius', 'scale', 'bg', 'margin', 'jc', 'rm', 'font', 'close']) $(id).addEventListener('change', () => refresh());
 	document.querySelectorAll('input[name=region]').forEach(el => el.addEventListener('change', () => { readForm(); saveSettings(); drawPreview(); }));
 	$('btnSel').onclick = () => useSelection();
-	$('btnReload').onclick = async () => { try { srcSvg = await exportSvgFromEda(); await refresh(); log('已重新读取当前图页'); } catch (e) { log((e as Error).message, true); } };
-	$('btnSvg').onclick = async () => { try { await save(new Blob([finalSvg()], { type: 'image/svg+xml' }), `${fileBase}_beautify.svg`); log('SVG 已保存'); } catch (e) { log(`保存 SVG 失败：${(e as Error).message}`, true); } };
+	$('btnReload').onclick = async () => { try { log('正在重新读取原理图…', false, true); srcSvg = await exportSvgFromEda(); await refresh(); log('已重新读取当前图页'); } catch (e) { log((e as Error).message, true); } };
+	$('btnSvg').onclick = async () => { try { log('正在生成并保存 SVG…', false, true); await save(new Blob([finalSvg()], { type: 'image/svg+xml' }), `${fileBase}_beautify.svg`); log('SVG 已保存'); } catch (e) { log(`保存 SVG 失败：${(e as Error).message}`, true); } };
 	$('btnPng').onclick = async () => {
-		try { log('正在渲染 PNG…'); const b = await renderPng(finalSvg()); await save(b, `${fileBase}_beautify@${S.scale}x.png`); log(`PNG 已保存（${S.scale}x，背景：${S.bg}）`); }
+		try { log('正在渲染 PNG 图片…', false, true); const b = await renderPng(finalSvg()); await save(b, `${fileBase}_beautify@${S.scale}x.png`); log(`PNG 已保存（${S.scale}x，背景：${S.bg}）`); }
 		catch (e) { log(`PNG 渲染失败：${(e as Error).message}`, true); }
 	};
 	if (!E) { log('IFrame 中拿不到 eda 对象，无法读取原理图（此运行环境不支持）', true); return; }
-	try { srcSvg = await exportSvgFromEda(); await refresh(); log('就绪：可直接导出，或选择区域后导出'); }
+	try { log('正在读取图页…', false, true); srcSvg = await exportSvgFromEda(); await refresh(); log('就绪：可直接导出，或选择区域后导出'); }
 	catch (e) { log((e as Error).message, true); }
 }
 main();

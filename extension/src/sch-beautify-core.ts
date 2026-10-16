@@ -138,7 +138,49 @@ const num = (s: string | undefined, d: number) => { const v = Number.parseFloat(
 interface Seg { el: El; i: number; p: P; q: P; kind: 'h' | 'v' | 'd'; sw: number; col: string }
 interface Arc { seg: Seg; ta: number; tb: number; rx: number; ry: number; ks: number[]; merged: boolean }
 
-/** 移除整页背景：根 <svg> 的 background 样式，以及覆盖 ≥90% viewBox 的实心 <rect>（不在 defs/pattern/mask 中） */
+function isLightBgFill(fill: string): boolean {
+	const f = fill.trim().toLowerCase();
+	if (['#fff', '#ffffff', '#fffcf8', '#fafafa', '#f5f4ef', '#fdfdfd', '#fcfcfc', '#f5f5f5'].includes(f)) return true;
+	if (f.startsWith('#') && f.length === 7) {
+		const r = Number.parseInt(f.slice(1, 3), 16);
+		const g = Number.parseInt(f.slice(3, 5), 16);
+		const b = Number.parseInt(f.slice(5, 7), 16);
+		return r >= 235 && g >= 235 && b >= 220;
+	}
+	if (f.startsWith('rgb')) {
+		const m = f.match(/\d+/g);
+		if (m && m.length >= 3) {
+			const [r, g, b] = m.map(Number);
+			return r >= 235 && g >= 235 && b >= 220;
+		}
+	}
+	return false;
+}
+
+/** 给 SVG 注入指定背景色矩形（若 bg 为 null 或 transparent 则不注入，并移除已有 data-bg） */
+export function applyBackground(svg: string, bg: string | null): string {
+	let out = svg.replace(/<rect\b[^>]*\bdata-bg="1"[^>]*>(?:<\/rect>)?/g, '');
+	if (!bg || bg === 'transparent') {
+		return out.replace(/(<svg\b[^>]*\bstyle=")([^"]*)(")/, (_, p1, p2, p3) => {
+			const s = p2.replace(/background(-color)?\s*:[^;]*;?/g, '');
+			return `${p1}${s}${p3}`;
+		});
+	}
+	const m = out.match(/<svg\b[^>]*>/);
+	if (!m) return out;
+	const vbStr = out.match(/viewBox="([^"]+)"/)?.[1] || '0 0 100 100';
+	const vb = vbStr.split(/[\s,]+/).map(Number);
+	const bgRect = `<rect x="${fmt(vb[0])}" y="${fmt(vb[1])}" width="${fmt(vb[2])}" height="${fmt(vb[3])}" fill="${bg}" data-bg="1"/>`;
+	const defsIdx = out.indexOf('</defs>');
+	if (defsIdx !== -1) {
+		const pos = defsIdx + 7;
+		return out.slice(0, pos) + bgRect + out.slice(pos);
+	}
+	const pos = m.index! + m[0].length;
+	return out.slice(0, pos) + bgRect + out.slice(pos);
+}
+
+/** 移除整页背景：根 <svg> 的 background 样式，以及图纸底色/整页浅色底板 <rect>（不在 defs/pattern/mask 中） */
 export function stripBackground(svg: string): { svg: string; removed: number } {
 	let removed = 0;
 	const root = svg.match(/<svg\b[^>]*>/);
@@ -161,11 +203,23 @@ export function stripBackground(svg: string): { svg: string; removed: number } {
 			const at = parseAttrs(m[3] || '').attrs;
 			const fill = (styleGet(at, 'fill') || 'black').trim().toLowerCase();
 			const n = (k: string) => Number.parseFloat(at[k] ?? '0');
-			if (!(fill === 'none' || fill === 'transparent' || fill.startsWith('url('))
-				&& n('width') * n('height') >= 0.9 * vb[2] * vb[3] && n('x') <= vb[0] + 0.05 * vb[2] && n('y') <= vb[1] + 0.05 * vb[3]) {
-				let end = re.lastIndex;
-				if (m[4] !== '/') { const close = out.indexOf('</rect>', end); if (close >= 0) end = close + 7; re.lastIndex = end; }
-				cuts.push([m.index, end]); removed++; continue;
+			const w = n('width'); const h = n('height');
+			const partid = at.c_partid || '';
+			const id = at.id || '';
+			const cls = at.class || '';
+
+			// 绝对不删除元器件
+			const isComponent = ['part', 'part_pin', 'part_attr', 'wire'].includes(partid);
+			if (!isComponent && !(fill === 'none' || fill === 'transparent' || fill.startsWith('url('))) {
+				const isSheetTagged = /sheet|frame|background|page/i.test(`${partid} ${id} ${cls}`);
+				const isLargeArea = (w * h >= 0.2 * vb[2] * vb[3]) || (w >= 0.4 * vb[2] && h >= 0.4 * vb[3]) || (w >= 250 && h >= 200);
+				const isLightBg = isLightBgFill(fill);
+
+				if (isSheetTagged || (isLargeArea && isLightBg) || (w * h >= 0.8 * vb[2] * vb[3])) {
+					let end = re.lastIndex;
+					if (m[4] !== '/') { const close = out.indexOf('</rect>', end); if (close >= 0) end = close + 7; re.lastIndex = end; }
+					cuts.push([m.index, end]); removed++; continue;
+				}
 			}
 		}
 		if (m[4] !== '/') stack.push(tag);

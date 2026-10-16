@@ -126,6 +126,19 @@ def main():
     tree = etree.parse(a.inp); root = tree.getroot()
     # --- page background (some exports/themes add a full-page filled <rect> or root background) ---
     bg_removed = 0
+    def is_light_fill(f):
+        f = (f or '').strip().lower()
+        if f in ('#fff', '#ffffff', '#fffcf8', '#fafafa', '#f5f4ef', '#fdfdfd', '#fcfcfc', '#f5f5f5'): return True
+        if f.startswith('#') and len(f) == 7:
+            try:
+                r, g, b = int(f[1:3], 16), int(f[3:5], 16), int(f[5:7], 16)
+                return r >= 235 and g >= 235 and b >= 220
+            except ValueError: pass
+        if f.startswith('rgb'):
+            nums = [int(n) for n in re.findall(r'\d+', f)]
+            if len(nums) >= 3: return nums[0] >= 235 and nums[1] >= 235 and nums[2] >= 220
+        return False
+
     if not a.keep_background:
         vb = [float(v) for v in re.split(r'[\s,]+', root.get('viewBox', '0 0 0 0').strip())]
         st = root.get('style', '')
@@ -135,9 +148,15 @@ def main():
             if any(isinstance(p.tag, str) and etree.QName(p).localname in ('defs', 'pattern', 'mask', 'clipPath', 'symbol') for p in r.iterancestors()): continue
             fill = (style_get(r, 'fill') or 'black').strip().lower()
             if fill in ('none', 'transparent') or fill.startswith('url('): continue
+            partid = r.get('c_partid', '')
+            rid = r.get('id', '')
+            rcls = r.get('class', '')
+            if partid in ('part', 'part_pin', 'part_attr', 'wire'): continue
             try: x, y, w, h = (float(r.get(k, 0)) for k in ('x', 'y', 'width', 'height'))
             except ValueError: continue
-            if vb[2] > 0 and w * h >= 0.9 * vb[2] * vb[3] and x <= vb[0] + 0.05 * vb[2] and y <= vb[1] + 0.05 * vb[3]:
+            is_sheet = bool(re.search(r'sheet|frame|background|page', f'{partid} {rid} {rcls}', re.I))
+            is_large = vb[2] > 0 and ((w * h >= 0.2 * vb[2] * vb[3]) or (w >= 0.4 * vb[2] and h >= 0.4 * vb[3]) or (w >= 250 and h >= 200))
+            if is_sheet or (is_large and is_light_fill(fill)) or (vb[2] > 0 and w * h >= 0.8 * vb[2] * vb[3]):
                 r.getparent().remove(r); bg_removed += 1
     wires = [e for e in root.iter('{*}polyline') if e.get('c_partid') == 'wire']
 

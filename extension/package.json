@@ -9,10 +9,10 @@
 		"node": ">=20.17.0"
 	},
 	"scripts": {
-		"compile": "rimraf ./dist/ && ts-node ./config/esbuild.prod.ts",
+		"compile": "tsx ./config/esbuild.prod.ts",
 		"lint": "eslint",
 		"fix": "eslint --fix",
-		"build": "sh ./build.sh",
+		"build": "tsx ./build/build-all.ts",
 		"debug": "ts-node ./build/dev.ts",
 		"update:check": "ts-node ./build/update.ts check",
 		"update": "ts-node ./build/update.ts update && npm install",
