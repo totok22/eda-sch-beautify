@@ -3,7 +3,9 @@
   "private": true,
   "description": "EasyEDA Pro schematic beautify export (root forwarding)",
   "scripts": {
+    "setup": "npm --prefix extension ci",
     "build": "npm --prefix extension run build",
+    "test": "npm --prefix extension run test",
     "compile": "npm --prefix extension run compile",
     "lint": "npm --prefix extension run lint"
   }

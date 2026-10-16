@@ -3,7 +3,7 @@
 	"uuid": "0f26dbe73c894ea5830d370a72848cfe",
 	"displayName": "原理图美化导出",
 	"description": "嘉立创EDA专业版原理图美化导出：导线交叉处半圆跨线弧（KiCad 风格）、节点跟随导线颜色、删除未连接标记、中文宋体/英文 Times New Roman，导出 SVG / PNG（1x/2x/4x，透明/白/纸色背景，可按选区或框选导出）",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"publisher": "mike long",
 	"engines": {
 		"eda": "^3.2.0"

@@ -67,6 +67,33 @@ def set_color(el, col):
 CJK = r'[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef\u3000-\u303f]'
 CJK_RUN = re.compile(r'(%s+)' % CJK)
 
+def apply_color_theme(root, theme):
+    """black-on-white / white-on-black: recolor stroke & fill to one color. Leaves defs/mask/pattern/clipPath contents
+    (white there is a mask's "visible" signal), fill/stroke none|transparent|currentColor|url(...) alone; with black-on-white
+    white fills stay white. Mirrors applyColorTheme() in extension/src/sch-beautify-core.ts. Returns elements touched."""
+    bow = theme == 'black-on-white'; target = '#000000' if bow else '#FFFFFF'
+    white = re.compile(r'^(#fff|#ffffff|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))$')
+    skip = ('defs', 'mask', 'pattern', 'clipPath')
+    def keep(c, is_fill):
+        c = c.strip().lower()
+        return c in ('none', 'transparent', 'currentcolor') or c.startswith('url(') or (is_fill and bow and bool(white.match(c)))
+    def restyle(st):
+        st = re.sub(r'(?<![-\w])stroke:\s*([^;"]+)', lambda m: m.group(0) if keep(m.group(1), False) else 'stroke:' + target, st)
+        return re.sub(r'(?<![-\w])fill:\s*([^;"]+)', lambda m: m.group(0) if keep(m.group(1), True) else 'fill:' + target, st)
+    n = 0
+    for el in root.iter():
+        if not isinstance(el.tag, str): continue
+        if etree.QName(el).localname in skip or any(isinstance(p.tag, str) and etree.QName(p).localname in skip for p in el.iterancestors()): continue
+        touched = False
+        if el.get('style'):
+            ns = restyle(el.get('style'))
+            if ns != el.get('style'): el.set('style', ns); touched = True
+        for k in ('stroke', 'fill'):
+            v = el.get(k)
+            if v is not None and not keep(v, k == 'fill') and v != target: el.set(k, target); touched = True
+        n += touched
+    return n
+
 def split_cjk(text_el, font):
     """wrap CJK runs of every text node inside text_el in <tspan style="font-family:font">; returns runs wrapped"""
     n = 0
@@ -120,6 +147,8 @@ def main():
     ap.add_argument('--keep-background', action='store_true',
                     help='keep a full-page background <rect> / root background style if the export has one (default: remove)')
     ap.add_argument('--no-avoid', action='store_true', help='do not shrink arcs that touch dots/pins/text')
+    ap.add_argument('--color-theme', choices=['default', 'black-on-white', 'white-on-black'], default='default',
+                    help='recolor every line / text / fill to one color (same as the extension panel option); the output has no background, add one when using white-on-black')
     a = ap.parse_args()
     excl = [tuple(map(float, s.split(','))) for s in a.exclude_rect]
 
@@ -155,8 +184,10 @@ def main():
             try: x, y, w, h = (float(r.get(k, 0)) for k in ('x', 'y', 'width', 'height'))
             except ValueError: continue
             is_sheet = bool(re.search(r'sheet|frame|background|page', f'{partid} {rid} {rcls}', re.I))
-            is_large = vb[2] > 0 and ((w * h >= 0.2 * vb[2] * vb[3]) or (w >= 0.4 * vb[2] and h >= 0.4 * vb[3]) or (w >= 250 and h >= 200))
-            if is_sheet or (is_large and is_light_fill(fill)) or (vb[2] > 0 and w * h >= 0.8 * vb[2] * vb[3]):
+            # only an un-outlined light plate counts as sheet background; outlined rects are user-drawn group/module boxes
+            stroke = (style_get(r, 'stroke') or 'none').strip().lower()
+            is_plate = vb[2] > 0 and stroke in ('none', 'transparent') and is_light_fill(fill) and w * h >= 0.5 * vb[2] * vb[3]
+            if is_sheet or is_plate or (vb[2] > 0 and w * h >= 0.8 * vb[2] * vb[3]):
                 r.getparent().remove(r); bg_removed += 1
     wires = [e for e in root.iter('{*}polyline') if e.get('c_partid') == 'wire']
 
@@ -379,6 +410,7 @@ def main():
         if 'fill' not in path.get('style', ''): path.set('style', path.get('style', '') + 'fill:none;')
         path.tail = w.tail
         w.getparent().replace(w, path)
+    themed = apply_color_theme(root, a.color_theme) if a.color_theme != 'default' else 0
     tree.write(a.out, encoding='utf-8', xml_declaration=False)
 
     # --- summary ---
@@ -393,6 +425,7 @@ def main():
     print('notes (shrunk / obstacles): %d' % len(notes))
     for k, why in notes: print('  (%s, %s) %s' % (fmt(cross[k][0]), fmt(cross[k][1]), why))
     print('page background elements removed: %d' % bg_removed)
+    if a.color_theme != 'default': print('color theme %s: %d elements recolored' % (a.color_theme, themed))
     print('end markers found: %d, removed: %d%s' % (len(markers), len(removed_markers),
           '' if all(ok for *_, ok in removed_markers) else '  (not on a wire end, e.g. unconnected pin): ' +
           str([(fmt(x), fmt(y)) for x, y, ok in removed_markers if not ok])))

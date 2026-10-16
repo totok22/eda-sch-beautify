@@ -161,66 +161,55 @@ function isLightBgFill(fill: string): boolean {
 
 /** 给 SVG 注入指定背景色矩形（若 bg 为 null 或 transparent 则不注入，并移除已有 data-bg） */
 export function applyBackground(svg: string, bg: string | null): string {
-	let out = svg.replace(/<rect\b[^>]*\bdata-bg="1"[^>]*>(?:<\/rect>)?/g, '');
-	if (!bg || bg === 'transparent') {
-		return out.replace(/(<svg\b[^>]*\bstyle=")([^"]*)(")/, (_, p1, p2, p3) => {
-			const s = p2.replace(/background(-color)?\s*:[^;]*;?/g, '');
-			return `${p1}${s}${p3}`;
-		});
-	}
+	const out = svg.replace(/<rect\b[^>]*\bdata-bg="1"[^>]*>(?:<\/rect>)?/g, '');
 	const m = out.match(/<svg\b[^>]*>/);
 	if (!m) return out;
-	const vbStr = out.match(/viewBox="([^"]+)"/)?.[1] || '0 0 100 100';
-	const vb = vbStr.split(/[\s,]+/).map(Number);
-	const bgRect = `<rect x="${fmt(vb[0])}" y="${fmt(vb[1])}" width="${fmt(vb[2])}" height="${fmt(vb[3])}" fill="${bg}" data-bg="1"/>`;
-	const defsIdx = out.indexOf('</defs>');
-	if (defsIdx !== -1) {
-		const pos = defsIdx + 7;
-		return out.slice(0, pos) + bgRect + out.slice(pos);
+	if (!bg || bg === 'transparent') {
+		if (!/\bstyle="[^"]*background/.test(m[0])) return out;
+		const tag = m[0].replace(/(\bstyle=")([^"]*)(")/, (_, p1, p2, p3) => `${p1}${p2.replace(/background(-color)?\s*:[^;]*;?/g, '')}${p3}`);
+		return out.replace(m[0], () => tag);
 	}
+	// 背景矩形必须是根元素的第一个子元素（最先绘制）；不能跟在后面的 </defs> 之后，否则可能盖住内容
+	const vb = (m[0].match(/\bviewBox="([^"]+)"/)?.[1] || '0 0 100 100').split(/[\s,]+/).map(Number);
+	const bgRect = `<rect x="${fmt(vb[0])}" y="${fmt(vb[1])}" width="${fmt(vb[2])}" height="${fmt(vb[3])}" fill="${bg}" data-bg="1"/>`;
 	const pos = m.index! + m[0].length;
 	return out.slice(0, pos) + bgRect + out.slice(pos);
 }
 
-/** 增强导出配色：当选择 Black on White 或 White on Black 时，将所有非背景/非透明图元统一转换 */
+/**
+ * 增强导出配色：Black on White / White on Black 时，把线条、文字、填充统一换成单色。
+ * 不动 defs / mask / pattern / clipPath 内部（里面的白色是遮罩的“可见”信号，改了图案填充就没了），
+ * 不动 fill:none / transparent / url(...)，不动 applyBackground 注入的 data-bg 底板。
+ */
 export function applyColorTheme(svg: string, theme: 'Default' | 'Black on White' | 'White on Black'): string {
 	if (theme === 'Default') return svg;
 	const isBow = theme === 'Black on White';
-	const targetColor = isBow ? '#000000' : '#FFFFFF';
+	const target = isBow ? '#000000' : '#FFFFFF';
+	const WHITE = /^(#fff|#ffffff|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))$/;
+	const keepPaint = (c: string, isFill: boolean) => {
+		c = c.trim().toLowerCase();
+		return c === 'none' || c === 'transparent' || c === 'currentcolor' || c.startsWith('url(') || (isFill && isBow && WHITE.test(c));
+	};
 
-	// 转换 style="stroke: ...; fill: ..."
-	let out = svg.replace(/(<(?!(?:mask|pattern|clipPath|defs)\b)[a-zA-Z0-9:-]+[^>]*\bstyle=")([^"]*)(")/gi, (_, p1, style, p3) => {
-		let s = style;
-		s = s.replace(/(?<![-\w])stroke:\s*([^;"]+)/gi, (m0: string, col: string) => {
-			const c = col.trim().toLowerCase();
-			if (c === 'none' || c === 'transparent') return m0;
-			return `stroke:${targetColor}`;
+	// 先把 defs / mask / pattern / clipPath 整块摘出来，转换完再放回去
+	const kept: string[] = [];
+	const shelled = svg.replace(/<(defs|mask|pattern|clipPath)\b[\s\S]*?<\/\1>/g, (blk) => `\u0000${kept.push(blk) - 1}\u0000`);
+
+	const recolored = shelled.replace(/<[a-zA-Z][\w:-]*(?:\s+[^<>]*?)?\/?>/g, (tag) => {
+		if (/\bdata-bg="1"/.test(tag)) return tag;
+		// style="stroke:..;fill:.."
+		let t = tag.replace(/(\bstyle=")([^"]*)(")/, (_, p1, style: string, p3) => {
+			const s = style
+				.replace(/(?<![-\w])stroke:\s*([^;"]+)/gi, (m0: string, col: string) => keepPaint(col, false) ? m0 : `stroke:${target}`)
+				.replace(/(?<![-\w])fill:\s*([^;"]+)/gi, (m0: string, col: string) => keepPaint(col, true) ? m0 : `fill:${target}`);
+			return `${p1}${s}${p3}`;
 		});
-		s = s.replace(/(?<![-\w])fill:\s*([^;"]+)/gi, (m0: string, col: string) => {
-			const c = col.trim().toLowerCase();
-			if (c === 'none' || c === 'transparent') return m0;
-			if (isBow && (c === '#fff' || c === '#ffffff' || c.startsWith('rgb(255, 255, 255)'))) return m0;
-			return `fill:${targetColor}`;
-		});
-		return `${p1}${s}${p3}`;
+		// stroke="..." / fill="..." 属性（同一标签里每一个都处理）
+		t = t.replace(/(\s)(stroke|fill)="([^"]*)"/g, (m0, ws: string, name: string, col: string) => keepPaint(col, name === 'fill') ? m0 : `${ws}${name}="${target}"`);
+		return t;
 	});
 
-	// 转换单独的 stroke="..." 属性
-	out = out.replace(/(<(?!(?:mask|pattern|clipPath|defs|rect\b[^>]*\bdata-bg="1")\b)[a-zA-Z0-9:-]+[^>]*)\bstroke="([^"]*)"/gi, (m0, p1, col) => {
-		const c = col.trim().toLowerCase();
-		if (c === 'none' || c === 'transparent') return m0;
-		return `${p1}stroke="${targetColor}"`;
-	});
-
-	// 转换单独的 fill="..." 属性
-	out = out.replace(/(<(?!(?:mask|pattern|clipPath|defs|rect\b[^>]*\bdata-bg="1")\b)[a-zA-Z0-9:-]+[^>]*)\bfill="([^"]*)"/gi, (m0, p1, col) => {
-		const c = col.trim().toLowerCase();
-		if (c === 'none' || c === 'transparent') return m0;
-		if (isBow && (c === '#fff' || c === '#ffffff' || c.startsWith('rgb(255, 255, 255)'))) return m0;
-		return `${p1}fill="${targetColor}"`;
-	});
-
-	return out;
+	return recolored.replace(/\u0000(\d+)\u0000/g, (_, i) => kept[Number(i)]);
 }
 
 /** 移除整页背景：根 <svg> 的 background 样式，以及图纸底色/整页浅色底板 <rect>（不在 defs/pattern/mask 中） */
@@ -255,10 +244,12 @@ export function stripBackground(svg: string): { svg: string; removed: number } {
 			const isComponent = ['part', 'part_pin', 'part_attr', 'wire'].includes(partid);
 			if (!isComponent && !(fill === 'none' || fill === 'transparent' || fill.startsWith('url('))) {
 				const isSheetTagged = /sheet|frame|background|page/i.test(`${partid} ${id} ${cls}`);
-				const isLargeArea = (w * h >= 0.2 * vb[2] * vb[3]) || (w >= 0.4 * vb[2] && h >= 0.4 * vb[3]) || (w >= 250 && h >= 200);
-				const isLightBg = isLightBgFill(fill);
+				// 无描边的浅色大块才按底板处理；带描边的是用户画的分组框 / 模块框，不能删
+				const stroke = (styleGet(at, 'stroke') || 'none').trim().toLowerCase();
+				const outlined = !(stroke === 'none' || stroke === 'transparent');
+				const isLargeLightPlate = !outlined && isLightBgFill(fill) && w * h >= 0.5 * vb[2] * vb[3];
 
-				if (isSheetTagged || (isLargeArea && isLightBg) || (w * h >= 0.8 * vb[2] * vb[3])) {
+				if (isSheetTagged || isLargeLightPlate || (w * h >= 0.8 * vb[2] * vb[3])) {
 					let end = re.lastIndex;
 					if (m[4] !== '/') { const close = out.indexOf('</rect>', end); if (close >= 0) end = close + 7; re.lastIndex = end; }
 					cuts.push([m.index, end]); removed++; continue;

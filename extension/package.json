@@ -1,7 +1,7 @@
 {
 	"name": "eda-sch-beautify",
 	"type": "module",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"description": "EasyEDA Pro schematic beautify export (hop-over arcs etc.)",
 	"author": "mike long",
 	"license": "MIT",
@@ -11,6 +11,7 @@
 	"scripts": {
 		"compile": "tsx ./config/esbuild.prod.ts",
 		"lint": "eslint",
+		"test": "tsx ./test/test-core.ts",
 		"fix": "eslint --fix",
 		"build": "tsx ./build/build-all.ts",
 		"debug": "ts-node ./build/dev.ts",

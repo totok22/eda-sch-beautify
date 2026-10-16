@@ -261,13 +261,12 @@
     justify-content: space-between;
     padding: 4px 8px;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.94); /* 不用 backdrop-filter：它盖在持续移动的画布上，每帧都要重新模糊 */
     border: 1px solid rgba(226, 232, 240, 0.8);
     box-shadow: var(--shadow-md);
   }
   html[data-theme=dark] .floating-toolbar {
-    background: rgba(28, 29, 33, 0.85);
+    background: rgba(28, 29, 33, 0.94);
     border: 1px solid rgba(45, 48, 57, 0.8);
   }
   .tb-group {
@@ -319,11 +318,16 @@
     transform-origin: 0 0;
     will-change: transform;
   }
-  #preview {
+  /* 预览是栅格位图：#preview 全页底图，#previewHi 可视区高清细节层（同一坐标系，一起被 #layer 缩放） */
+  #layer canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
     display: block;
     max-width: none;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+    outline: 1px solid rgba(0, 0, 0, 0.12); /* 不用 box-shadow：大图层上的模糊阴影每次重绘都要算 */
   }
+  #previewHi { visibility: hidden; }
   #selbox {
     position: absolute;
     border: 2px dashed var(--sel-border);
@@ -460,6 +464,7 @@
         <select id="bg">
           <option value="paper">KiCad 纸色 (#F5F4EF)</option>
           <option value="white">纯白 (#FFFFFF)</option>
+          <option value="black">纯黑 (#000000，配黑底白线)</option>
           <option value="transparent">完全透明 (无底色)</option>
         </select>
       </div>
@@ -492,9 +497,10 @@
 
   <div id="wrap">
     <div id="layer">
-      <img id="preview" alt="">
-      <div id="selbox"></div>
+      <canvas id="preview"></canvas>
+      <canvas id="previewHi"></canvas>
     </div>
+    <div id="selbox"></div>
   </div>
 </div>
 

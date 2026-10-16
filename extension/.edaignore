@@ -18,3 +18,4 @@
 debug.log
 /test/
 /build.sh
+.DS_Store
