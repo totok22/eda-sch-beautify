@@ -1,64 +1,89 @@
 # 原理图美化导出 eda-sch-beautify
 
-给 **嘉立创EDA专业版（EasyEDA Pro）** 原理图导出的 SVG / PNG 做"出版级"美化：
+给 **嘉立创EDA专业版（EasyEDA Pro）** 原理图导出的 SVG / PNG 做“出版级”美化：
 
 - 不相连的导线交叉处加 **半圆跨线弧**（KiCad 10 风格：水平线向上鼓；相邻交叉等大缩小或合并；避开节点/引脚/文字）
-- **节点圆点跟随导线颜色**
-- 删除灰色的 **未连接标记**
-- **中文用宋体、英文保持 Times New Roman**（同一行混排也分别设置）
-- 移除导出自带的整页背景，PNG 可选 **1x/2x/4x**、**透明 / 白色 / KiCad 纸色 #F5F4EF** 背景
-- 可只导出 **选中图元** 或 **手动框选** 的区域
+- **节点圆点跟随导线颜色**（告别默认千篇一律的红色圆点）
+- 删除灰色的 **未连接标记**（× / 灰色端点圆圈）
+- **中文用宋体、英文保持 Times New Roman**（出版级中英文衬线混排）
+- 智能彻底剥离 EDA 导出自带的图纸底板，无缝支持 **透明 / 白色 / KiCad 经典纸色 (#F5F4EF)**，告别背景割裂
+- 支持 **整页**、**选中图元（支持边距留白微调）**、**交互式手动框选** 导出
+- 支持 **默认彩色**、**出版级白底黑线（单色）**、**高对比度黑底白线**
 
-只处理导出的图片，**不修改原理图**。
+> **说明**：本插件只处理导出的 SVG / PNG 图片文件，**不会修改原理图工程本身**。
 
 ![面板（浅色）](docs/screenshots/panel_light.png)
 ![面板（深色）](docs/screenshots/panel_dark.png)
 ![跨线弧前后对比（上：原图，下：处理后）](docs/screenshots/hop_before_after.png)
 ![整页前后对比：未连接标记、节点颜色、中文宋体](docs/screenshots/markers_font_before_after.png)
 
-示例原理图：[`examples/example.svg`](examples/example.svg)（嘉立创EDA专业版直接导出的 SVG 示例）
-
-## 两种用法
-
-### 1. 嘉立创EDA 扩展（`extension/`）
-构建：
-```bash
-cd extension
-npm install
-./build.sh            # 产物：build/dist/eda-sch-beautify_v<版本>.eext（同时复制到 dist/）
-```
-安装：嘉立创EDA专业版 V3「高级 → 扩展管理器 → 导入」（V2：「设置 → 扩展 → 扩展管理器 → 导入扩展」），选择 `.eext`，在「已安装」中启用并勾选「显示在顶部菜单」。
-参考：<https://prodocs.lceda.cn/cn/api/guide/how-to-start.html>
-
-使用：原理图编辑器顶部菜单「原理图美化」
-- 快速导出美化 SVG（整页）
-- 导出面板（PNG / 区域 / 设置）…
-
-### 2. Python 命令行（`python/`）
-```bash
-pip install lxml
-python3 python/eda_sch_beautify.py 原理图.svg 输出.svg         # 默认参数
-python3 python/eda_sch_beautify.py -h                         # 全部参数
-python3 python/render.py 输出.svg 输出.png 3000                # 用无头 Chrome 渲染预览（需安装 Chrome）
-```
-常用参数：`--r` 半径、`--close shrink|merge`、`--hop horizontal|vertical|auto`、`--junction-color wire|keep`、`--keep-end-markers`、`--font-mode split|element`、`--keep-font`、`--exclude-rect x,y,w,h`、`--axis-tol`、`--keep-background`。
-
-## 识别规则（基于嘉立创EDA专业版导出实测）
-| 元素 | SVG 表示 |
-|---|---|
-| 导线 | `<polyline c_partid="wire" points="…">` |
-| 节点 | 实心 `<circle r="2.5" fill:#CC0000>` |
-| 未连接标记 | `<circle r="1" stroke:#999999 fill:#999999B3>` |
-| 引脚端点 | 空心 `<ellipse>`，引脚 `c_partid="part_pin"` |
-
-扩展里的 TypeScript 核心（`extension/src/sch-beautify-core.ts`）与 Python 脚本输出一致，可用 `extension/test/run.ts` 在 Node 下核对。
-
-## 已知限制
-- 只处理水平/竖直导线（轻微偏斜在 `--axis-tol` 内按正交处理），斜线忽略
-- 文字避让的文字范围按字号估算
-- "选中图元"区域依赖 EDA 图元 ID 与 SVG 元素 ID 对应；对不上时退回 API 坐标换算（y 轴翻转假设），可改用手动框选
+示例原理图：[`examples/example.svg`](examples/example.svg)
 
 ---
 
-## English summary
-**eda-sch-beautify** post-processes schematic SVG exported from JLCEDA / EasyEDA Pro: KiCad-style semicircle hop-overs at unconnected wire crossings, junction dots recolored to the wire color, gray "unconnected" markers removed, CJK text in SimSun while Latin stays Times New Roman, page background removed, PNG export at 1x/2x/4x with transparent / white / KiCad paper (#F5F4EF) background, and region export (selection or drag-box). Available as an EasyEDA Pro extension (`extension/`, build with `./build.sh`, import the `.eext` via the Extension Manager) and as a Python CLI (`python/eda_sch_beautify.py`). The schematic itself is never modified. License: MIT (SDK-derived scaffolding under Apache-2.0, see NOTICE).
+## 核心参数与选项详解
+
+### 1. 导出配色（Color Themes）
+| 配色模式 | 表现与应用场景 |
+|---|---|
+| **默认（跟随 EDA）** | 保留原理图原本的彩色连线与元器件颜色（例如蓝色 CAN 总线、绿色信号线、深红引脚等）。 |
+| **白底黑线（Black on White）** | 将所有连线、元器件框线、文字、引脚与实心节点圆点**统一转换为纯黑色（#000000）**。专为**学术论文、学位论文、专利附图、黑白书籍印刷**打造，告别彩色杂乱感。 |
+| **黑底白线（White on Black）** | 将所有连线与文字反色转换为纯白色（#FFFFFF），适合深色 PPT、技术汇报或暗黑系文档展示。 |
+
+### 2. 导出范围与边距（Export Region & Margin）
+* **整页**：导出当前原理图完整画幅。
+* **选中图元**：先在嘉立创原理图编辑器中选中需要的模块（元器件与走线），点击「读取选中」即可精准截取该电路块。
+  * **边距（Margin，默认 10）**：在选中图元的外接包围盒四周**额外向外扩出的空白留白间距**。
+    * 若边距为 `0`，导出框将死死贴着最外层的引脚或走线边缘，视觉局促甚至可能切断半个像素；
+    * 边距为 `10`（约 10px / 1~2 个网格格点），能为电路模块四周提供舒适的美感呼吸感与排版留白。
+* **手动框选**：在交互预览画板中直接使用鼠标拖拽出虚线框，任意自由截取局部电路。
+
+### 3. PNG 背景底色（Background）
+* **KiCad 纸色 (`#F5F4EF`)**：KiCad 经典浅米黄暖色底，柔和护眼，大幅提升工程高级感。
+* **纯白 (`#FFFFFF`)**：现代标准纯白底色，适合通用技术文档与网页。
+* **完全透明**：真透明背景（彻底去除原图纸白色大底板），可无缝贴入深色/彩色 PPT 演示文稿、Word 及 Markdown 中而不显突兀白边。
+
+---
+
+## 使用方法
+
+### 1. 嘉立创EDA 扩展（推荐）
+
+#### 构建打包（支持 Win11 / macOS / Linux）
+```bash
+# 在项目根目录下直接运行（会自动安装依赖并打包）：
+npm install
+npm run build
+```
+打包成功后，将在 `extension/dist/` 下生成 `eda-sch-beautify_v<版本>.eext` 安装包。
+
+#### 安装与使用
+1. 打开嘉立创EDA专业版（V2/V3）。
+2. 打开菜单：**「高级 → 扩展管理器」**（或「设置 → 扩展 → 扩展管理器」）。
+3. 点击 **「导入」**，选择打包好的 `.eext` 文件。
+4. 在「已安装」列表中启用本扩展，并**勾选「显示在顶部菜单」**。
+5. 打开原理图编辑器，在顶部菜单点击 **「原理图美化」** 即可打开现代化导出面板。
+
+### 2. Python 命令行工具（`python/`）
+```bash
+pip install lxml
+python3 python/eda_sch_beautify.py 原理图.svg 输出.svg         # 默认参数美化
+python3 python/eda_sch_beautify.py -h                         # 查看全部 CLI 参数
+python3 python/render.py 输出.svg 输出.png 3000                # 用 Chrome 渲染 PNG 预览
+```
+
+---
+
+## 识别规则（基于嘉立创EDA专业版导出实测）
+| 元素 | SVG 表示 | 处理方式 |
+|---|---|---|
+| 导线 | `<polyline c_partid="wire" points="…">` | 正交相交处自动生成平滑向上半圆跨线弧 |
+| 节点 | 实心 `<circle r="2.5" fill:#CC0000>` | 自动提取相连导线颜色并保持一致 |
+| 未连接标记 | `<circle r="1" stroke:#999999 fill:#999999B3>` | 智能识别并安全清除 |
+| 引脚端点 | 空心 `<ellipse>`，引脚 `c_partid="part_pin"` | 跨线弧自动避让，不产生虚假跨越 |
+| 中文字体 | 含有 CJK 汉字的 `<text>` / `<tspan>` | 自动设定为宋体（SimSun），西文保留衬线体 |
+
+---
+
+## 许可协议
+MIT License.

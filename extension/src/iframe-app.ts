@@ -41,7 +41,7 @@ const toDataUri = (svg: string) => `data:image/svg+xml;base64,${btoa(unescape(en
 const viewBox = (svg: string): Rect => (svg.match(/viewBox="([^"]+)"/)?.[1] || '0 0 100 100').split(/[\s,]+/).map(Number) as Rect;
 
 function options(): Partial<HopoverOptions> {
-	return { r: S.radius > 0 ? S.radius : undefined, close: S.close, junctionColor: S.junctionColor ? 'wire' : 'keep', removeEndMarkers: S.removeMarkers, font: S.font ? defaultOptions.font : null, fontMode: 'split' };
+	return { r: S.radius > 0 ? S.radius : undefined, close: S.close, junctionColor: S.junctionColor ? 'wire' : 'keep', removeEndMarkers: S.removeMarkers, font: S.font ? defaultOptions.font : null, fontMode: 'split', colorTheme: S.exportTheme };
 }
 function region(): Rect | null { return S.region === 'manual' ? manual : S.region === 'selection' ? selRect : null; }
 function finalSvg(): string {

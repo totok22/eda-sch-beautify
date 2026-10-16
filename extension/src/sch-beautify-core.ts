@@ -16,12 +16,14 @@ export interface HopoverOptions {
 	font: string | null; // null = 不改字体
 	keepBackground?: boolean; // 默认移除整页背景 rect / 根背景样式
 	fontMode: 'split' | 'element'; // split: 只给中文片段包 <tspan> 设宋体，英文保持原字体
+	colorTheme?: 'Default' | 'Black on White' | 'White on Black'; // 导出配色增强
 }
 export const defaultOptions: HopoverOptions = {
 	hop: 'horizontal', minR: 1.2, gap: 1, close: 'shrink', junctionColor: 'wire', excludeRects: [],
 	avoid: true, axisTol: 0.5, removeEndMarkers: true,
 	font: 'SimSun, 宋体, \'Songti SC\', \'Noto Serif CJK SC\', serif',
 	fontMode: 'split',
+	colorTheme: 'Default',
 };
 export interface HopoverResult {
 	svg: string;
@@ -178,6 +180,47 @@ export function applyBackground(svg: string, bg: string | null): string {
 	}
 	const pos = m.index! + m[0].length;
 	return out.slice(0, pos) + bgRect + out.slice(pos);
+}
+
+/** 增强导出配色：当选择 Black on White 或 White on Black 时，将所有非背景/非透明图元统一转换 */
+export function applyColorTheme(svg: string, theme: 'Default' | 'Black on White' | 'White on Black'): string {
+	if (theme === 'Default') return svg;
+	const isBow = theme === 'Black on White';
+	const targetColor = isBow ? '#000000' : '#FFFFFF';
+
+	// 转换 style="stroke: ...; fill: ..."
+	let out = svg.replace(/(<(?!(?:mask|pattern|clipPath|defs)\b)[a-zA-Z0-9:-]+[^>]*\bstyle=")([^"]*)(")/gi, (_, p1, style, p3) => {
+		let s = style;
+		s = s.replace(/(?<![-\w])stroke:\s*([^;"]+)/gi, (m0: string, col: string) => {
+			const c = col.trim().toLowerCase();
+			if (c === 'none' || c === 'transparent') return m0;
+			return `stroke:${targetColor}`;
+		});
+		s = s.replace(/(?<![-\w])fill:\s*([^;"]+)/gi, (m0: string, col: string) => {
+			const c = col.trim().toLowerCase();
+			if (c === 'none' || c === 'transparent') return m0;
+			if (isBow && (c === '#fff' || c === '#ffffff' || c.startsWith('rgb(255, 255, 255)'))) return m0;
+			return `fill:${targetColor}`;
+		});
+		return `${p1}${s}${p3}`;
+	});
+
+	// 转换单独的 stroke="..." 属性
+	out = out.replace(/(<(?!(?:mask|pattern|clipPath|defs|rect\b[^>]*\bdata-bg="1")\b)[a-zA-Z0-9:-]+[^>]*)\bstroke="([^"]*)"/gi, (m0, p1, col) => {
+		const c = col.trim().toLowerCase();
+		if (c === 'none' || c === 'transparent') return m0;
+		return `${p1}stroke="${targetColor}"`;
+	});
+
+	// 转换单独的 fill="..." 属性
+	out = out.replace(/(<(?!(?:mask|pattern|clipPath|defs|rect\b[^>]*\bdata-bg="1")\b)[a-zA-Z0-9:-]+[^>]*)\bfill="([^"]*)"/gi, (m0, p1, col) => {
+		const c = col.trim().toLowerCase();
+		if (c === 'none' || c === 'transparent') return m0;
+		if (isBow && (c === '#fff' || c === '#ffffff' || c.startsWith('rgb(255, 255, 255)'))) return m0;
+		return `${p1}fill="${targetColor}"`;
+	});
+
+	return out;
 }
 
 /** 移除整页背景：根 <svg> 的 background 样式，以及图纸底色/整页浅色底板 <rect>（不在 defs/pattern/mask 中） */
@@ -465,6 +508,10 @@ export function processSvg(svg: string, opt: Partial<HopoverOptions> = {}): Hopo
 	// --- 应用编辑（从后往前） ---
 	let out = svg;
 	for (const [el, rep] of [...edits.entries()].sort((u, v) => v[0].start - u[0].start)) out = out.slice(0, el.start) + (rep ?? '') + out.slice(el.end);
+
+	if (a.colorTheme && a.colorTheme !== 'Default') {
+		out = applyColorTheme(out, a.colorTheme);
+	}
 
 	const merged = arcs.filter(x => x.merged);
 	return {
