@@ -1,0 +1,10 @@
+{
+  "name": "eda-sch-beautify-workspace",
+  "private": true,
+  "description": "EasyEDA Pro schematic beautify export (root forwarding)",
+  "scripts": {
+    "build": "npm --prefix extension run build",
+    "compile": "npm --prefix extension run compile",
+    "lint": "npm --prefix extension run lint"
+  }
+}
