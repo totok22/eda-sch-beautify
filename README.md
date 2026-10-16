@@ -54,6 +54,11 @@
 
 ### 1. 嘉立创EDA 扩展（推荐）
 
+#### 获取安装包
+- **嘉立创 EDA 扩展广场**：[原理图美化导出](https://jlc-ext.com/item/polioko/eda-sch-beautify)
+- **GitHub Releases**：[下载 `.eext`](https://github.com/totok22/eda-sch-beautify/releases)
+- 或者自己构建（见下）
+
 #### 构建打包（支持 Win11 / macOS / Linux）
 ```bash
 # 在项目根目录下运行（需要 Node.js ≥ 20.17）：

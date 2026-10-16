@@ -3,7 +3,7 @@
 	"type": "module",
 	"version": "0.3.1",
 	"description": "EasyEDA Pro schematic beautify export (hop-over arcs etc.)",
-	"author": "mike long",
+	"author": "totok22",
 	"license": "MIT",
 	"engines": {
 		"node": ">=20.17.0"

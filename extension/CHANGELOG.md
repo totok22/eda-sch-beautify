@@ -10,6 +10,7 @@
 - 修复 `applyBackground` 在 `</defs>` 靠后时把背景盖到内容上面；背景现在总是根元素的第一个子元素
 - Python 命令行同步底板识别规则，并新增 `--color-theme default|black-on-white|white-on-black`
 - 新增 `npm run test`（`extension/test/test-core.ts`），`.eext` 不再打入 `.DS_Store`
+- 开发者信息（`publisher` / 作者 / LICENSE 版权人）统一为 totok22
 
 ## 0.3.0
 - 改名为「原理图美化导出」（eda-sch-beautify）

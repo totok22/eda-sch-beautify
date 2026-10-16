@@ -16,6 +16,7 @@
 - **规范仓库**：以本仓库（GitHub `totok22/eda-sch-beautify` 的 clone）为准；不要把未同步的旁路目录当主线。
 - **不要提交**：`node_modules/`、本机私密路径、未脱敏的用户原理图。示例用 `examples/example.svg`（真实 EasyEDA Pro 导出）。
 - **扩展构建 / 测试**：`extension/` 下没有 `node_modules` 时先 `npm run setup`（= `npm --prefix extension ci`），也可以临时 symlink 到已装好的 SDK 依赖。`npm run build` 走 `build/build-all.ts`（跨平台，会自己建 `build/dist/` 并清空 `extension/dist/`），`build.sh` 是等价的 macOS/Linux 备用路径。产物进 `extension/dist/`。改核心算法后跑 `npm run test`（`extension/test/test-core.ts`，有断言，只用 `examples/example.svg` 和合成用例）。
+- **发布**：版本号在 `extension/extension.json`、`extension/package.json`、`extension/package-lock.json`（两处）同步改，并在 `extension/CHANGELOG.md` 写条目 → `npm run test && npm run build` → 推送 main → GitHub release（tag `v<版本>`，标题同 tag，正文用 CHANGELOG 要点 + 一行“安装包：`eda-sch-beautify_v<版本>.eext`”，附件就是 `extension/dist/` 里的 `.eext`）。扩展广场需要另外手动上传同一个 `.eext`，审核通过后才会上架。
 - **面板性能 / 清晰度**（`extension/src/iframe-app.ts`，见 `extension/CHANGELOG.md` 0.3.1）：
   - 预览是栅格位图（`<canvas>`），不是矢量 SVG：`#preview` 全页底图（最长边 ≤2048、DPR 封顶 2）+ `#previewHi` 可视区细节层（操作停下约 140 ms 后按“缩放 × DPR”重绘，位图 ≤8192 边 / 16M 像素）。两层从不同时可见（透明背景下会叠色）。
   - 缩放/平移只改 `#layer` 这一层的 `transform`，每帧至多写一次（rAF）；导出区域框 `#selbox` 画在 `#layer` 外，边框恒为 2px。
@@ -79,6 +80,7 @@
 
 - 中文站：[jlc-ext.com](https://jlc-ext.com/)（EDA 扩展广场）
 - 文档写明的站点：[jlcext.com](https://jlcext.com/)
+- 本扩展在广场的页面：<https://jlc-ext.com/item/polioko/eda-sch-beautify>（`polioko` 是广场账号的命名空间；广场按 `uuid` 识别扩展，`extension.json` 的 `publisher` 只是展示用的开发者信息，与命名空间无关）
 - 本扩展仓库：<https://github.com/totok22/eda-sch-beautify>
 - Issues：<https://github.com/totok22/eda-sch-beautify/issues>
 
