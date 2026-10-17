@@ -159,6 +159,94 @@ function isLightBgFill(fill: string): boolean {
 	return false;
 }
 
+/** SVG length -> user units；百分比按 viewBox 的宽 / 高解析。 */
+function bgLength(raw: string | undefined, ref: number, fallback = 0): number {
+	const s = (raw || '').trim();
+	if (!s) return fallback;
+	const v = Number.parseFloat(s);
+	if (!Number.isFinite(v)) return fallback;
+	return /%$/.test(s) ? ref * v / 100 : v;
+}
+
+function isTransparentPaint(color: string): boolean {
+	const c = color.trim().toLowerCase();
+	if (/^#[0-9a-f]{4}$/.test(c)) return c.endsWith('0');
+	if (/^#[0-9a-f]{8}$/.test(c)) return c.slice(7) === '00';
+	const rgba = c.match(/^rgba?\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*(?:,\s*([\d.]+)\s*)?\)$/);
+	return !!rgba && rgba[1] !== undefined && Number.parseFloat(rgba[1]) <= 0;
+}
+
+/** 页面底板常带一圈与填充同色的浅描边；这种描边不应把底板保护成用户分组框。 */
+function hasVisibleOutline(fill: string, stroke: string, strokeWidth: number, strokeOpacity: number): boolean {
+	const s = stroke.trim().toLowerCase();
+	if (s === 'none' || s === 'transparent' || isTransparentPaint(s)) return false;
+	if (strokeWidth <= 0 || strokeOpacity <= 0) return false;
+	if (s === fill.trim().toLowerCase()) return false;
+	return !(isLightBgFill(fill) && isLightBgFill(s));
+}
+
+interface BgBox { x: number; y: number; w: number; h: number }
+
+/** 解析 path 的坐标包围盒（覆盖常用 M/L/H/V/C/S/Q/T/A 命令，供底板识别使用）。 */
+function pathBounds(d: string | undefined): BgBox | null {
+	const tokens = [...(d || '').matchAll(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g)].map(m => m[0]);
+	let i = 0; let cmd = ''; let cx = 0; let cy = 0; let sx = 0; let sy = 0;
+	let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
+	const num = () => { const v = Number(tokens[i++]); return Number.isFinite(v) ? v : NaN; };
+	const mark = (x: number, y: number) => {
+		if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+		minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+	};
+	while (i < tokens.length) {
+		if (/^[a-zA-Z]$/.test(tokens[i])) { cmd = tokens[i++]; if (cmd.toLowerCase() === 'z') { cx = sx; cy = sy; cmd = ''; } continue; }
+		if (!cmd) { i++; continue; }
+		const C = cmd.toUpperCase(); const rel = cmd !== C;
+		if (C === 'M' || C === 'L' || C === 'T') {
+			let x = num(); let y = num();
+			if (rel) { x += cx; y += cy; }
+			if (C === 'M') { sx = x; sy = y; cmd = rel ? 'l' : 'L'; }
+			cx = x; cy = y; mark(cx, cy);
+		} else if (C === 'H') {
+			let x = num(); if (rel) x += cx; cx = x; mark(cx, cy);
+		} else if (C === 'V') {
+			let y = num(); if (rel) y += cy; cy = y; mark(cx, cy);
+		} else if (C === 'C') {
+			const pts = [num(), num(), num(), num(), num(), num()];
+			if (rel) for (let j = 0; j < 6; j += 2) { pts[j] += cx; pts[j + 1] += cy; }
+			for (let j = 0; j < 6; j += 2) mark(pts[j], pts[j + 1]);
+			cx = pts[4]; cy = pts[5];
+		} else if (C === 'S' || C === 'Q') {
+			const pts = [num(), num(), num(), num()];
+			if (rel) for (let j = 0; j < 4; j += 2) { pts[j] += cx; pts[j + 1] += cy; }
+			for (let j = 0; j < 4; j += 2) mark(pts[j], pts[j + 1]);
+			cx = pts[2]; cy = pts[3];
+		} else if (C === 'A') {
+			num(); num(); num(); num(); num();
+			let x = num(); let y = num(); if (rel) { x += cx; y += cy; }
+			cx = x; cy = y; mark(cx, cy);
+		} else {
+			i++;
+		}
+	}
+	return maxX >= minX && maxY >= minY ? { x: minX, y: minY, w: maxX - minX, h: maxY - minY } : null;
+}
+
+function pointsBounds(points: string | undefined): BgBox | null {
+	const v = (points || '').trim().split(/[\s,]+/).filter(Boolean).map(Number);
+	if (v.length < 2 || v.some(n => !Number.isFinite(n))) return null;
+	const xs = v.filter((_, i) => i % 2 === 0); const ys = v.filter((_, i) => i % 2 === 1);
+	const x = Math.min(...xs); const y = Math.min(...ys);
+	return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+}
+
+function transformedCoverage(box: BgBox, transform: M, vb: Rect): number {
+	if (!(vb[2] > 0 && vb[3] > 0)) return 0;
+	const pts = [[box.x, box.y], [box.x + box.w, box.y], [box.x, box.y + box.h], [box.x + box.w, box.y + box.h]].map(p => apply(transform, p as P));
+	const w = Math.max(...pts.map(p => p[0])) - Math.min(...pts.map(p => p[0]));
+	const h = Math.max(...pts.map(p => p[1])) - Math.min(...pts.map(p => p[1]));
+	return w * h / (vb[2] * vb[3]);
+}
+
 /** 给 SVG 注入指定背景色矩形（若 bg 为 null 或 transparent 则不注入，并移除已有 data-bg） */
 export function applyBackground(svg: string, bg: string | null): string {
 	const out = svg.replace(/<rect\b[^>]*\bdata-bg="1"[^>]*>(?:<\/rect>)?/g, '');
@@ -212,51 +300,66 @@ export function applyColorTheme(svg: string, theme: 'Default' | 'Black on White'
 	return recolored.replace(/\u0000(\d+)\u0000/g, (_, i) => kept[Number(i)]);
 }
 
-/** 移除整页背景：根 <svg> 的 background 样式，以及图纸底色/整页浅色底板 <rect>（不在 defs/pattern/mask 中） */
+/** 移除整页背景：根 <svg> 的 background 样式，以及图纸底色/整页浅色底板（不在 defs/pattern/mask 中） */
 export function stripBackground(svg: string): { svg: string; removed: number } {
 	let removed = 0;
 	const root = svg.match(/<svg\b[^>]*>/);
 	if (!root) return { svg, removed };
 	const { attrs } = parseAttrs(root[0].slice(4, -1));
-	const vb = (attrs.viewBox || '0 0 0 0').trim().split(/[\s,]+/).map(Number);
+	const vb = (attrs.viewBox || '0 0 0 0').trim().split(/[\s,]+/).map(Number) as Rect;
 	let out = svg;
 	if (/background(-color)?\s*:/.test(attrs.style || '')) {
 		const ns = (attrs.style || '').replace(/background(-color)?\s*:[^;]*;?/g, '');
 		out = out.replace(root[0], root[0].replace(/style="[^"]*"/, `style="${ns}"`)); removed++;
 	}
-	const cuts: Array<[number, number]> = []; const stack: string[] = [];
+	interface BgFrame { tag: string; m: M; fill: string; stroke: string; strokeWidth: number; strokeOpacity: number }
+	const cuts: Array<[number, number]> = [];
+	const rootAttrs = parseAttrs(root[0].slice(4, -1)).attrs;
+	const stack: BgFrame[] = [{
+		tag: '#root', m: I, fill: styleGet(rootAttrs, 'fill') || 'black', stroke: styleGet(rootAttrs, 'stroke') || 'none',
+		strokeWidth: bgLength(styleGet(rootAttrs, 'stroke-width'), vb[2], 1), strokeOpacity: Number.parseFloat(styleGet(rootAttrs, 'stroke-opacity') || '1'),
+	}];
 	const re = /<!--[\s\S]*?-->|<[?!][^>]*>|<\/([\w:-]+)\s*>|<([\w:-]+)((?:\s+[\w:.-]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>/g;
 	let m: RegExpExecArray | null;
 	while ((m = re.exec(out))) {
 		if (m[1]) { stack.pop(); continue; }
 		if (!m[2]) continue;
 		const tag = m[2].replace(/^.*:/, '');
-		if (tag === 'rect' && !stack.some(t => ['defs', 'pattern', 'mask', 'clipPath', 'symbol'].includes(t)) && vb[2] > 0) {
-			const at = parseAttrs(m[3] || '').attrs;
-			const fill = (styleGet(at, 'fill') || 'black').trim().toLowerCase();
-			const n = (k: string) => Number.parseFloat(at[k] ?? '0');
-			const w = n('width'); const h = n('height');
+		const parent = stack[stack.length - 1];
+		const at = parseAttrs(m[3] || '').attrs;
+		const transform = mul(parent.m, parseTransform(at.transform));
+		const fill = (styleGet(at, 'fill') || parent.fill || 'black').trim();
+		const stroke = (styleGet(at, 'stroke') || parent.stroke || 'none').trim();
+		const strokeWidth = bgLength(styleGet(at, 'stroke-width'), vb[2], parent.strokeWidth);
+		const strokeOpacityRaw = styleGet(at, 'stroke-opacity');
+		const strokeOpacity = strokeOpacityRaw === undefined ? parent.strokeOpacity : Number.parseFloat(strokeOpacityRaw);
+		if (['rect', 'path', 'polygon'].includes(tag) && !stack.some(t => ['defs', 'pattern', 'mask', 'clipPath', 'symbol'].includes(t.tag)) && vb[2] > 0) {
+			const lowerFill = fill.toLowerCase();
 			const partid = at.c_partid || '';
 			const id = at.id || '';
 			const cls = at.class || '';
+			const box = tag === 'rect'
+				? { x: bgLength(at.x, vb[2]), y: bgLength(at.y, vb[3]), w: bgLength(at.width, vb[2]), h: bgLength(at.height, vb[3]) }
+				: tag === 'path' ? pathBounds(at.d) : pointsBounds(at.points);
 
 			// 绝对不删除元器件
 			const isComponent = ['part', 'part_pin', 'part_attr', 'wire'].includes(partid);
-			if (!isComponent && !(fill === 'none' || fill === 'transparent' || fill.startsWith('url('))) {
+			if (box && !isComponent && !(lowerFill === 'none' || lowerFill === 'transparent' || lowerFill.startsWith('url('))) {
 				const isSheetTagged = /sheet|frame|background|page/i.test(`${partid} ${id} ${cls}`);
-				// 无描边的浅色大块才按底板处理；带描边的是用户画的分组框 / 模块框，不能删
-				const stroke = (styleGet(at, 'stroke') || 'none').trim().toLowerCase();
-				const outlined = !(stroke === 'none' || stroke === 'transparent');
-				const isLargeLightPlate = !outlined && isLightBgFill(fill) && w * h >= 0.5 * vb[2] * vb[3];
+				// 用累计变换后的包围盒判断真实覆盖率；EDA 有时把整页底板放进带 scale 的 <g>。
+				const coverage = transformedCoverage(box, transform, vb);
+				// 只保护真正可见的用户描边（如黑色模块框）；同色 / 近白色描边仍属于底板。
+				const outlined = hasVisibleOutline(fill, stroke, strokeWidth, strokeOpacity);
+				const isLargeLightPlate = !outlined && isLightBgFill(fill) && coverage >= 0.5;
 
-				if (isSheetTagged || isLargeLightPlate || (w * h >= 0.8 * vb[2] * vb[3])) {
+				if (isSheetTagged || isLargeLightPlate || coverage >= 0.8) {
 					let end = re.lastIndex;
-					if (m[4] !== '/') { const close = out.indexOf('</rect>', end); if (close >= 0) end = close + 7; re.lastIndex = end; }
+					if (m[4] !== '/') { const closeTag = `</${m[2]}>`; const close = out.indexOf(closeTag, end); if (close >= 0) end = close + closeTag.length; re.lastIndex = end; }
 					cuts.push([m.index, end]); removed++; continue;
 				}
 			}
 		}
-		if (m[4] !== '/') stack.push(tag);
+		if (m[4] !== '/') stack.push({ tag, m: transform, fill, stroke, strokeWidth, strokeOpacity });
 	}
 	for (const [a0, b0] of cuts.reverse()) out = out.slice(0, a0) + out.slice(b0);
 	return { svg: out, removed };

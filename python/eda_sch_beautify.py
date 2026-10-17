@@ -168,26 +168,138 @@ def main():
             if len(nums) >= 3: return nums[0] >= 235 and nums[1] >= 235 and nums[2] >= 220
         return False
 
+    def length(raw, ref, fallback=0.0):
+        raw = (raw or '').strip()
+        m = re.match(r'^\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+))\s*(%)?', raw)
+        if not m: return fallback
+        v = float(m.group(1))
+        return ref * v / 100 if m.group(2) else v
+
+    def transparent_paint(color):
+        c = (color or '').strip().lower()
+        if re.match(r'^#[0-9a-f]{4}$', c): return c.endswith('0')
+        if re.match(r'^#[0-9a-f]{8}$', c): return c[-2:] == '00'
+        m = re.match(r'^rgba?\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*(?:,\s*([\d.]+)\s*)?\)$', c)
+        return bool(m and m.group(1) is not None and float(m.group(1)) <= 0)
+
+    def inherited(el, key, default):
+        node = el
+        while node is not None and isinstance(node.tag, str):
+            v = style_get(node, key)
+            if v is not None: return v
+            node = node.getparent()
+        return default
+
+    def visible_outline(fill, stroke, stroke_width, stroke_opacity):
+        s = (stroke or '').strip().lower()
+        if s in ('none', 'transparent') or transparent_paint(s): return False
+        if stroke_width <= 0 or stroke_opacity <= 0: return False
+        if s == (fill or '').strip().lower(): return False
+        return not (is_light_fill(fill) and is_light_fill(s))
+
+    def path_bounds(d):
+        tokens = re.findall(r'[A-Za-z]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?', d or '')
+        i = 0; cmd = ''; cx = cy = sx = sy = 0.0
+        minx = miny = float('inf'); maxx = maxy = float('-inf')
+        def number():
+            nonlocal i
+            if i >= len(tokens): i += 1; return float('nan')
+            try: v = float(tokens[i])
+            except ValueError: v = float('nan')
+            i += 1; return v
+        def mark(x, y):
+            nonlocal minx, miny, maxx, maxy
+            if math.isfinite(x) and math.isfinite(y):
+                minx = min(minx, x); miny = min(miny, y); maxx = max(maxx, x); maxy = max(maxy, y)
+        while i < len(tokens):
+            if re.fullmatch(r'[A-Za-z]', tokens[i]):
+                cmd = tokens[i]; i += 1
+                if cmd.lower() == 'z': cx, cy = sx, sy; cmd = ''
+                continue
+            if not cmd: i += 1; continue
+            C = cmd.upper(); rel = cmd != C
+            if C in ('M', 'L', 'T'):
+                x, y = number(), number()
+                if rel: x += cx; y += cy
+                if C == 'M': sx, sy = x, y; cmd = 'l' if rel else 'L'
+                cx, cy = x, y; mark(cx, cy)
+            elif C == 'H':
+                x = number(); x += cx if rel else 0; cx = x; mark(cx, cy)
+            elif C == 'V':
+                y = number(); y += cy if rel else 0; cy = y; mark(cx, cy)
+            elif C == 'C':
+                pts = [number() for _ in range(6)]
+                if rel:
+                    for j in range(0, 6, 2): pts[j] += cx; pts[j + 1] += cy
+                for j in range(0, 6, 2): mark(pts[j], pts[j + 1])
+                cx, cy = pts[4], pts[5]
+            elif C in ('S', 'Q'):
+                pts = [number() for _ in range(4)]
+                if rel:
+                    for j in range(0, 4, 2): pts[j] += cx; pts[j + 1] += cy
+                for j in range(0, 4, 2): mark(pts[j], pts[j + 1])
+                cx, cy = pts[2], pts[3]
+            elif C == 'A':
+                for _ in range(5): number()
+                x, y = number(), number()
+                if rel: x += cx; y += cy
+                cx, cy = x, y; mark(cx, cy)
+            else:
+                i += 1
+        if maxx < minx or maxy < miny: return None
+        return (minx, miny, maxx - minx, maxy - miny)
+
+    def points_bounds(points):
+        try: v = [float(x) for x in re.split(r'[\s,]+', (points or '').strip()) if x]
+        except ValueError: return None
+        if len(v) < 2: return None
+        xs, ys = v[0::2], v[1::2]
+        return (min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+
+    def transformed_coverage(box, m, vb):
+        if vb[2] <= 0 or vb[3] <= 0: return 0
+        x, y, w, h = box
+        pts = [apply(m, p) for p in ((x, y), (x + w, y), (x, y + h), (x + w, y + h))]
+        bw = max(p[0] for p in pts) - min(p[0] for p in pts)
+        bh = max(p[1] for p in pts) - min(p[1] for p in pts)
+        return bw * bh / (vb[2] * vb[3])
+
     if not a.keep_background:
         vb = [float(v) for v in re.split(r'[\s,]+', root.get('viewBox', '0 0 0 0').strip())]
         st = root.get('style', '')
         if re.search(r'background(-color)?\s*:', st):
             root.set('style', re.sub(r'background(-color)?\s*:[^;]*;?', '', st)); bg_removed += 1
-        for r in list(root.iter('{*}rect')):
+        for r in list(root.iter()):
+            if not isinstance(r.tag, str): continue
+            local = etree.QName(r).localname
+            if local not in ('rect', 'path', 'polygon'): continue
             if any(isinstance(p.tag, str) and etree.QName(p).localname in ('defs', 'pattern', 'mask', 'clipPath', 'symbol') for p in r.iterancestors()): continue
-            fill = (style_get(r, 'fill') or 'black').strip().lower()
+            fill = inherited(r, 'fill', 'black').strip().lower()
             if fill in ('none', 'transparent') or fill.startswith('url('): continue
             partid = r.get('c_partid', '')
             rid = r.get('id', '')
             rcls = r.get('class', '')
             if partid in ('part', 'part_pin', 'part_attr', 'wire'): continue
-            try: x, y, w, h = (float(r.get(k, 0)) for k in ('x', 'y', 'width', 'height'))
-            except ValueError: continue
+            if local == 'rect':
+                box = (length(r.get('x'), vb[2]), length(r.get('y'), vb[3]),
+                       length(r.get('width'), vb[2]), length(r.get('height'), vb[3]))
+            elif local == 'path':
+                box = path_bounds(r.get('d'))
+            else:
+                box = points_bounds(r.get('points'))
+            if not box: continue
             is_sheet = bool(re.search(r'sheet|frame|background|page', f'{partid} {rid} {rcls}', re.I))
-            # only an un-outlined light plate counts as sheet background; outlined rects are user-drawn group/module boxes
-            stroke = (style_get(r, 'stroke') or 'none').strip().lower()
-            is_plate = vb[2] > 0 and stroke in ('none', 'transparent') and is_light_fill(fill) and w * h >= 0.5 * vb[2] * vb[3]
-            if is_sheet or is_plate or (vb[2] > 0 and w * h >= 0.8 * vb[2] * vb[3]):
+            # Use the transformed bbox: EasyEDA may place the page plate inside a scaled <g>.
+            coverage = transformed_coverage(box, ctm(r), vb)
+            # Preserve real user-drawn group/module borders. Same-colour / near-white borders are
+            # part of the exported sheet plate, not a visible module outline.
+            stroke = inherited(r, 'stroke', 'none')
+            try: stroke_width = float(re.sub(r'[^0-9.]', '', inherited(r, 'stroke-width', '1')) or 1)
+            except ValueError: stroke_width = 1
+            try: stroke_opacity = float(inherited(r, 'stroke-opacity', '1'))
+            except ValueError: stroke_opacity = 1
+            is_plate = is_light_fill(fill) and coverage >= 0.5 and not visible_outline(fill, stroke, stroke_width, stroke_opacity)
+            if is_sheet or is_plate or coverage >= 0.8:
                 r.getparent().remove(r); bg_removed += 1
     wires = [e for e in root.iter('{*}polyline') if e.get('c_partid') == 'wire']
 

@@ -1,7 +1,7 @@
 {
 	"name": "eda-sch-beautify",
 	"type": "module",
-	"version": "0.3.2",
+	"version": "0.3.3",
 	"description": "EasyEDA Pro schematic beautify export (hop-over arcs etc.)",
 	"author": "totok22",
 	"license": "MIT",
@@ -32,14 +32,10 @@
 		"jszip": "^3.10.1",
 		"lint-staged": "^16.2.3",
 		"rimraf": "^6.0.1",
-		"simple-git-hooks": "^2.13.1",
 		"ts-node": "^10.9.2",
 		"tsx": "^4.23.15",
 		"typescript": "^5.7.3",
 		"ws": "^8.18.0"
-	},
-	"simple-git-hooks": {
-		"pre-commit": "npx lint-staged"
 	},
 	"lint-staged": {
 		"*": "eslint --fix"

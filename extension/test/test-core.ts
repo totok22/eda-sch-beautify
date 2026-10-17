@@ -7,7 +7,7 @@ import { applyBackground, applyColorTheme, cropSvg, processSvg, stripBackground 
 
 const example = fs.readFileSync(new URL('../../examples/example.svg', import.meta.url), 'utf8');
 const page = (inner: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="700" viewBox="0 0 1000 700"><defs></defs>${inner}<polyline c_partid="wire" points="10,10 100,10" style="stroke:#008800;stroke-width:1"/></svg>`;
-const rect = (x: number, y: number, w: number, h: number, style: string) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" style="${style}"/>`;
+const rect = (x: number, y: number, w: number | string, h: number | string, style: string) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" style="${style}"/>`;
 const tests: Array<[string, () => void | Promise<void>]> = [];
 const test = (name: string, fn: () => void | Promise<void>) => tests.push([name, fn]);
 
@@ -20,6 +20,17 @@ test('stripBackground：带描边的分组框 / 模块框、小色块不能删',
 	assert.equal(stripBackground(page(rect(100, 100, 300, 250, 'fill:#ffffff;stroke:#000'))).removed, 0);
 	assert.equal(stripBackground(page(rect(100, 100, 450, 300, 'fill:#F5F4EF;stroke:#000'))).removed, 0);
 	assert.equal(stripBackground(page(rect(10, 10, 50, 20, 'fill:#fff'))).removed, 0);
+});
+test('stripBackground：EDA 底板带同色 / 透明描边、百分比尺寸或父级变换，也不能残留', () => {
+	assert.equal(stripBackground(page(rect(0, 0, 1000, 700, 'fill:#FFFCF8;stroke:#FFFCF8'))).removed, 1);
+	assert.equal(stripBackground(page(rect(0, 0, 1000, 700, 'fill:#FFFCF8;stroke:#FFFFFF;stroke-width:1'))).removed, 1);
+	assert.equal(stripBackground(page(rect(0, 0, 1000, 700, 'fill:#FFFCF8;stroke:#000;stroke-opacity:0'))).removed, 1);
+	assert.equal(stripBackground(page(rect(0, 0, '100%', '100%', 'fill:#FFFCF8'))).removed, 1);
+	const transformed = page('<g transform="scale(2)">' + rect(0, 0, 500, 350, 'fill:#FFFCF8') + '</g>');
+	assert.equal(stripBackground(transformed).removed, 1);
+	assert.equal(stripBackground(page('<path d="M0 0H1000V700H0Z" fill="#FFFCF8"/>')).removed, 1);
+	assert.equal(stripBackground(page('<polygon points="0,0 1000,0 1000,700 0,700" fill="#FFFCF8"/>')).removed, 1);
+	assert.equal(stripBackground(page('<path d="M100 100H300V250H100Z" fill="#FFFCF8"/>')).removed, 0);
 });
 test('applyBackground：背景是根元素第一个子元素，可重复调用，transparent 会移除', () => {
 	const a = applyBackground(page(''), '#F5F4EF');
