@@ -1,4 +1,5 @@
 /** 原理图美化导出面板（运行在扩展 IFrame 中，拥有完整 DOM + Canvas） */
+import { buildFileName, currentPageName } from './file-name';
 import { applyBackground, bboxForIds, cropSvg, defaultOptions, type HopoverOptions, processSvg, type Rect } from './sch-beautify-core';
 
 declare const eda: any;
@@ -175,7 +176,7 @@ async function exportSvgFromEda(): Promise<string> {
 	if (!f) f = await E.sch_ManufactureData.getSvgFile('schematic');
 	if (!f) throw new Error('导出 SVG 失败：请先打开一个原理图图页');
 	if (/\.zip$/i.test(f.name || '')) throw new Error('导出结果是压缩包（多图页），请在单个图页中使用');
-	fileBase = (f.name || 'schematic.svg').replace(/\.svg$/i, '');
+	fileBase = await currentPageName(E, f.name);
 	return await f.text();
 }
 
@@ -299,9 +300,9 @@ async function main() {
 	document.querySelectorAll('input[name=region]').forEach(el => el.addEventListener('change', () => { readForm(); saveSettings(); updateSelBox(); }));
 	$('btnSel').onclick = () => useSelection();
 	$('btnReload').onclick = async () => { try { log('正在重新读取原理图…', false, true); srcSvg = await exportSvgFromEda(); await refresh(); log('已重新读取当前图页'); } catch (e) { log((e as Error).message, true); } };
-	$('btnSvg').onclick = async () => { try { log('正在生成并保存 SVG…', false, true); await save(new Blob([finalSvg()], { type: 'image/svg+xml' }), `${fileBase}_beautify.svg`); log('SVG 已保存'); } catch (e) { log(`保存 SVG 失败：${(e as Error).message}`, true); } };
+	$('btnSvg').onclick = async () => { try { log('正在生成并保存 SVG…', false, true); await save(new Blob([finalSvg()], { type: 'image/svg+xml' }), buildFileName(fileBase, 'svg')); log('SVG 已保存'); } catch (e) { log(`保存 SVG 失败：${(e as Error).message}`, true); } };
 	$('btnPng').onclick = async () => {
-		try { log('正在渲染 PNG 图片…', false, true); const b = await renderPng(finalSvg()); await save(b, `${fileBase}_beautify@${S.scale}x.png`); log(`PNG 已保存（${S.scale}x，背景：${S.bg}）`); }
+		try { log('正在渲染 PNG 图片…', false, true); const b = await renderPng(finalSvg()); await save(b, buildFileName(fileBase, 'png', { scale: S.scale })); log(`PNG 已保存（${S.scale}x，背景：${S.bg}）`); }
 		catch (e) { log(`PNG 渲染失败：${(e as Error).message}`, true); }
 	};
 	if (!E) { log('IFrame 中拿不到 eda 对象，无法读取原理图（此运行环境不支持）', true); return; }

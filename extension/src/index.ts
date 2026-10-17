@@ -6,6 +6,7 @@
  *   设置跨线弧半径…     → 设置半径（0 = 自动：3×线宽）
  */
 import extensionConfig from '../extension.json' with { type: 'json' };
+import { buildFileName, currentPageName } from './file-name';
 import { defaultOptions, type HopoverOptions, processSvg } from './sch-beautify-core';
 
 // eslint-disable-next-line unused-imports/no-unused-vars
@@ -55,11 +56,11 @@ async function run() {
 	try {
 		const f = await exportPageSvg();
 		if (!f) { toast('导出 SVG 失败：请先打开一个原理图图页', 'error'); return; }
-		const name = (f.name || 'schematic.svg').replace(/\.svg$/i, '');
 		if (/\.zip$/i.test(f.name || '')) { toast('导出结果是压缩包（多图页），请在单个图页中使用', 'warn'); return; }
+		const name = await currentPageName(eda, f.name);
 		const src = await f.text();
 		const { svg, stats } = processSvg(src, loadOptions());
-		await eda.sys_FileSystem.saveFile(new Blob([svg], { type: 'image/svg+xml' }), `${name}_beautify.svg`);
+		await eda.sys_FileSystem.saveFile(new Blob([svg], { type: 'image/svg+xml' }), buildFileName(name, 'svg'));
 		eda.sys_Dialog.showInformationMessage(
 			`交叉 ${stats.crossings} 处，画弧 ${stats.arcs} 个（合并 ${stats.merged}），跳过 ${stats.skipped.length}\n`
 			+ `删除未连接标记 ${stats.markersRemoved} 个，节点改色 ${stats.dotsRecolored} 个（颜色冲突 ${stats.colorConflicts.length}）\n`
