@@ -40,17 +40,24 @@
         - name: 同步 GitHub 发布到 CNB
           script: |
             set -e
-            args=(scripts/cnb_publish.py sync \
-              --repo "${CNB_REPO_SLUG}" \
-              --github-repo totok22/eda-sch-beautify \
-              --download-dir cnb-assets)
             if [ "${ALL:-false}" = "true" ]; then
-              args+=(--all)
+              python scripts/cnb_publish.py sync \
+                --repo "${CNB_REPO_SLUG}" \
+                --github-repo totok22/eda-sch-beautify \
+                --download-dir cnb-assets \
+                --all
+            elif [ -n "${TAG:-}" ]; then
+              python scripts/cnb_publish.py sync \
+                --repo "${CNB_REPO_SLUG}" \
+                --github-repo totok22/eda-sch-beautify \
+                --download-dir cnb-assets \
+                --tag "${TAG}"
+            else
+              python scripts/cnb_publish.py sync \
+                --repo "${CNB_REPO_SLUG}" \
+                --github-repo totok22/eda-sch-beautify \
+                --download-dir cnb-assets
             fi
-            if [ -n "${TAG:-}" ]; then
-              args+=(--tag "${TAG}")
-            fi
-            python "${args[@]}"
 
 # 定时任务只支持单一明确分支名，因此单独写在 main 下；时区为 Asia/Shanghai。
 main:
