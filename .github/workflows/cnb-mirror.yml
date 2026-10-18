@@ -102,8 +102,7 @@ jobs:
             --github-repo "${GITHUB_REPOSITORY}" --download-dir cnb-assets)
           if [ "${ALL:-false}" = "true" ]; then
             args+=(--all)
-          fi
-          if [ -n "${TAG:-}" ]; then
+          elif [ -n "${TAG:-}" ]; then
             args+=(--tag "${TAG}")
           fi
           python "${args[@]}"
