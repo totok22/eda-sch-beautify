@@ -17,6 +17,7 @@
 - **不要提交**：`node_modules/`、本机私密路径、未脱敏的用户原理图。示例用 `examples/example.svg`（真实 EasyEDA Pro 导出）。
 - **扩展构建 / 测试**：`extension/` 下没有 `node_modules` 时先 `npm run setup`（= `npm --prefix extension ci`），也可以临时 symlink 到已装好的 SDK 依赖。`npm run build` 走 `build/build-all.ts`（跨平台，会自己建 `build/dist/` 并清空 `extension/dist/`），`build.sh` 是等价的 macOS/Linux 备用路径。产物进 `extension/dist/`。改核心算法后跑 `npm run test`（`extension/test/test-core.ts`，有断言，只用 `examples/example.svg` 和合成用例）。
 - **发布**：版本号在 `extension/extension.json`、`extension/package.json`、`extension/package-lock.json`（两处）同步改，并在 `extension/CHANGELOG.md` 写条目 → `npm run test && npm run build` → 推送 main → GitHub release（tag `v<版本>`，标题同 tag，正文用 CHANGELOG 要点 + 一行“安装包：`eda-sch-beautify_v<版本>.eext`”，附件就是 `extension/dist/` 里的 `.eext`）。扩展广场需要另外手动上传同一个 `.eext`，审核通过后才会上架。
+- **CNB 镜像**：`.github/workflows/cnb-mirror.yml` 在 push / 发布后把全部分支、标签和发布附件同步到 `BITFSAE/eda-sch-beautify`（<https://cnb.cool/BITFSAE/eda-sch-beautify>），Actions secret 用 `CNB_TOKEN`。`.cnb.yml` 在 CNB 侧跑测试/打包，并提供 API 触发与每日补镜像；补历史发布可运行 `python scripts/cnb_publish.py sync --repo BITFSAE/eda-sch-beautify --all`，只补最新版可去掉 `--all`。
 - **面板性能 / 清晰度**（`extension/src/iframe-app.ts`，见 `extension/CHANGELOG.md` 0.3.1）：
   - 预览是栅格位图（`<canvas>`），不是矢量 SVG：`#preview` 全页底图（最长边 ≤2048、DPR 封顶 2）+ `#previewHi` 可视区细节层（操作停下约 140 ms 后按“缩放 × DPR”重绘，位图 ≤8192 边 / 16M 像素）。两层从不同时可见（透明背景下会叠色）。
   - 缩放/平移只改 `#layer` 这一层的 `transform`，每帧至多写一次（rAF）；导出区域框 `#selbox` 画在 `#layer` 外，边框恒为 2px。
@@ -35,6 +36,9 @@
 | `extension/extension.json` | 扩展清单（版本、菜单、logo/banner） |
 | `extension/build/build-all.ts` / `extension/build.sh` | 打包 `.eext`（前者跨平台，`npm run build` 用它） |
 | `extension/test/test-core.ts` | 核心算法回归测试（`npm run test`） |
+| `.github/workflows/cnb-mirror.yml` | 把分支、标签和发布附件镜像到 CNB |
+| `.cnb.yml` | CNB 侧 CI（测试/打包）与补镜像流水线 |
+| `scripts/cnb_publish.py` | 通过 CNB OpenAPI 创建发布、上传 `.eext`、匿名校验下载 |
 | `python/eda_sch_beautify.py` | 命令行同名处理 |
 | `examples/example.svg` | 文档与自测用示例 |
 | `docs/screenshots/` | README 截图 |
@@ -82,6 +86,7 @@
 - 文档写明的站点：[jlcext.com](https://jlcext.com/)
 - 本扩展在广场的页面：<https://jlc-ext.com/item/polioko/eda-sch-beautify>（`polioko` 是广场账号的命名空间；广场按 `uuid` 识别扩展，`extension.json` 的 `publisher` 只是展示用的开发者信息，与命名空间无关）
 - 本扩展仓库：<https://github.com/totok22/eda-sch-beautify>
+- 国内镜像：<https://cnb.cool/BITFSAE/eda-sch-beautify>（发布包：<https://cnb.cool/BITFSAE/eda-sch-beautify/-/releases>）
 - Issues：<https://github.com/totok22/eda-sch-beautify/issues>
 
 ### KiCad 跨线弧（设计参考）

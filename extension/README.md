@@ -37,6 +37,11 @@
 
 从扩展管理器安装后，请在“已安装”中启用本扩展，并**勾选「显示在顶部菜单」**。多图页导出如果得到的是压缩包，请改到单个图页里再导出。
 
+## 下载
+
+- GitHub Releases：<https://github.com/totok22/eda-sch-beautify/releases>
+- CNB 国内镜像：<https://cnb.cool/BITFSAE/eda-sch-beautify/-/releases>
+
 ## 面板
 
 ![面板（浅色）](images/panel_light.png)

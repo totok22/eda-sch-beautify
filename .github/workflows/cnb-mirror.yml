@@ -1,0 +1,109 @@
+name: CNB 镜像同步
+
+# 把 GitHub 上的代码、标签与发布安装包同步到 CNB（cnb.cool），
+# 国内用户可以直接从 https://cnb.cool/BITFSAE/eda-sch-beautify/-/releases 下载。
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - '**'
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 需要补做镜像的发布标签（留空同步最新正式发布）
+        required: false
+        type: string
+        default: ''
+      all:
+        description: 同步全部历史正式发布
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cnb-mirror
+  cancel-in-progress: false
+
+env:
+  CNB_REPO: BITFSAE/eda-sch-beautify
+
+jobs:
+  code:
+    name: 同步分支与标签
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 推送全部分支与标签到 CNB
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CNB_TOKEN:-}" ]; then
+            echo "::error::仓库缺少 Actions secret CNB_TOKEN，无法同步到 CNB"
+            exit 1
+          fi
+          git fetch --no-tags origin "+refs/heads/*:refs/remotes/origin/*"
+          git remote add cnb "https://cnb:${CNB_TOKEN}@cnb.cool/${CNB_REPO}"
+          git push cnb --force \
+            "+refs/remotes/origin/*:refs/heads/*" \
+            "+refs/tags/*:refs/tags/*"
+
+      - name: 清理 CNB 上已不存在的分支
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mapfile -t cnb_branches < <(git ls-remote --heads cnb | sed 's#.*refs/heads/##')
+          mapfile -t github_branches < <(git ls-remote --heads origin | sed 's#.*refs/heads/##')
+          for branch in "${cnb_branches[@]}"; do
+            if printf '%s\n' "${github_branches[@]}" | grep -qx "$branch"; then
+              continue
+            fi
+            echo "删除 CNB 上已不存在的分支：$branch"
+            git push cnb --delete "$branch"
+          done
+
+  release:
+    name: 同步发布安装包
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 拉取 GitHub 发布并镜像到 CNB
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          ALL: ${{ inputs.all }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CNB_TOKEN:-}" ]; then
+            echo "::error::仓库缺少 Actions secret CNB_TOKEN，无法同步到 CNB"
+            exit 1
+          fi
+          args=(scripts/cnb_publish.py sync --repo "${CNB_REPO}" \
+            --github-repo "${GITHUB_REPOSITORY}" --download-dir cnb-assets)
+          if [ "${ALL:-false}" = "true" ]; then
+            args+=(--all)
+          fi
+          if [ -n "${TAG:-}" ]; then
+            args+=(--tag "${TAG}")
+          fi
+          python "${args[@]}"

@@ -1,0 +1,61 @@
+# CNB 云原生构建（cnb.cool）配置：国内侧 CI + 发布镜像兜底。
+#
+# 代码与发布的主镜像在 GitHub Actions：`.github/workflows/cnb-mirror.yml`。
+# 下面的 API 触发入口和每日定时任务用同一个 `sync` 子命令补做发布镜像：
+# 即使 GitHub Actions 某次失败或被跳过，CNB 也会自己把最新正式发布补齐。
+#
+# 令牌：CNB 流水线直接使用内置的 CNB_TOKEN，不必额外配置密钥。
+
+"**":
+  push:
+    - name: 扩展回归测试与打包（Linux）
+      docker:
+        image: node:22-bookworm
+      stages:
+        - name: 安装扩展依赖
+          script: |
+            set -e
+            npm run setup
+        - name: 运行核心算法回归测试
+          script: |
+            set -e
+            npm run test
+        - name: 打包 .eext
+          script: |
+            set -e
+            npm run build
+            ls -lh extension/dist
+
+  # 手动或 API 触发的补镜像；TAG 可指定标签，ALL=true 可补全部历史正式发布。
+  api_trigger_mirror_release:
+    - name: 补做 GitHub 发布镜像
+      docker:
+        image: python:3.11-slim
+      stages: &mirror_stages
+        - name: 准备工具
+          script: |
+            set -e
+            apt-get update
+            apt-get install -y --no-install-recommends git ca-certificates curl
+        - name: 同步 GitHub 发布到 CNB
+          script: |
+            set -e
+            args=(scripts/cnb_publish.py sync \
+              --repo "${CNB_REPO_SLUG}" \
+              --github-repo totok22/eda-sch-beautify \
+              --download-dir cnb-assets)
+            if [ "${ALL:-false}" = "true" ]; then
+              args+=(--all)
+            fi
+            if [ -n "${TAG:-}" ]; then
+              args+=(--tag "${TAG}")
+            fi
+            python "${args[@]}"
+
+# 定时任务只支持单一明确分支名，因此单独写在 main 下；时区为 Asia/Shanghai。
+main:
+  "crontab: 40 3 * * *":
+    - name: 每日补做最新 GitHub 发布镜像
+      docker:
+        image: python:3.11-slim
+      stages: *mirror_stages

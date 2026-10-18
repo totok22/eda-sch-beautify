@@ -57,6 +57,7 @@
 #### 获取安装包
 - **嘉立创 EDA 扩展广场**：[原理图美化导出](https://jlc-ext.com/item/polioko/eda-sch-beautify)
 - **GitHub Releases**：[下载 `.eext`](https://github.com/totok22/eda-sch-beautify/releases)
+- **CNB 国内镜像**：[下载 `.eext`](https://cnb.cool/BITFSAE/eda-sch-beautify/-/releases)
 - 或者自己构建（见下）
 
 #### 构建打包（支持 Win11 / macOS / Linux）
@@ -67,6 +68,8 @@ npm run build     # 打包
 npm run test      # 可选：跑核心算法回归测试
 ```
 打包成功后，将在 `extension/dist/` 下生成 `eda-sch-beautify_v<版本>.eext` 安装包。也可以在 `extension/` 下运行 `./build.sh`。
+
+> **国内镜像**：仓库代码、标签和每个正式发布的 `.eext` 会自动同步到 [CNB](https://cnb.cool/BITFSAE/eda-sch-beautify)。GitHub Actions 未跑完时，也可以在 CNB 仓库的流水线里手动触发「补做 GitHub 发布镜像」。
 
 #### 安装与使用
 1. 打开嘉立创EDA专业版（V2/V3）。
