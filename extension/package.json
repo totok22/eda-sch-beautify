@@ -25,6 +25,7 @@
 		"@jlceda/pro-api-types": "^0.4.25",
 		"@types/fs-extra": "^11.0.4",
 		"@types/ws": "^8.5.13",
+		"@vue/compiler-sfc": "^3.5.44",
 		"esbuild": "^0.24.2",
 		"eslint": "^9.37.0",
 		"fs-extra": "^11.3.0",
