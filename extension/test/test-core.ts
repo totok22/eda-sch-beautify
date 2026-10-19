@@ -87,6 +87,7 @@ test('buildFileName：<图页名>_<时间>[@Nx].<ext>，1x 不带倍率，不再
 	assert.equal(buildFileName('电源模块', 'svg', { date }), '电源模块_20261017-1532.svg');
 	assert.equal(buildFileName('电源模块', 'png', { scale: 1, date }), '电源模块_20261017-1532.png');
 	assert.equal(buildFileName('电源模块', 'png', { scale: 4, date }), '电源模块_20261017-1532@4x.png');
+	assert.equal(buildFileName('电源模块', 'png', { scale: 6, date }), '电源模块_20261017-1532@6x.png');
 	assert.equal(buildFileName('a/b', '.png', { scale: 2, date }), 'a_b_20261017-1532@2x.png');
 	assert.equal(buildFileName('', 'svg', { date }), 'schematic_20261017-1532.svg');
 	assert.doesNotMatch(buildFileName('x', 'svg'), /beautify/);

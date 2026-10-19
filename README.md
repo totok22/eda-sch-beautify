@@ -9,6 +9,7 @@
 - 智能彻底剥离 EDA 导出自带的图纸底板，无缝支持 **透明 / 白色 / KiCad 经典纸色 (#F5F4EF) / 纯黑**，告别背景割裂
 - 支持 **整页**、**选中图元（支持边距留白微调）**、**交互式手动框选** 导出
 - 支持 **默认彩色**、**出版级白底黑线（单色）**、**高对比度黑底白线**
+- 导出面板采用中性的深灰 / 黑色风格，PNG 支持 **1x / 2x / 4x / 6x** 倍率，背景底色可直接选 **纸色 / 白 / 浅灰 / 深灰 / 黑 / 透明**
 
 > **说明**：本插件只处理导出的 SVG / PNG 图片文件，**不会修改原理图工程本身**。
 
@@ -43,8 +44,12 @@
 ### 3. PNG 背景底色（Background）
 * **KiCad 纸色 (`#F5F4EF`)**：KiCad 经典浅米黄暖色底，柔和护眼，大幅提升工程高级感。
 * **纯白 (`#FFFFFF`)**：现代标准纯白底色，适合通用技术文档与网页。
+* **浅灰 (`#F2F2F2`)**：接近 Word / 网页的默认灰色底，适合技术文档和截图拼版。
+* **深灰 (`#1E1E1E`)**：深色 PPT、技术汇报和暗色文档的常用底色，比纯黑柔和。
 * **纯黑 (`#000000`)**：配合「黑底白线」使用。
 * **完全透明**：真透明背景（彻底去除原图纸白色大底板），可无缝贴入深色/彩色 PPT 演示文稿、Word 及 Markdown 中而不显突兀白边。
+
+面板里这六种底色都做成了分段按钮，单击即可切换；“黑底白线”会自动把纸色 / 白 / 浅灰换成纯黑。
 
 > 底板识别会处理整页底板、浅色大底板，以及带 `sheet` / `frame` / `background` / `page` 标记的对象；尺寸会按父级变换和百分比解析。同色 / 近白色 / 透明描边算底板的一部分，而你在图里画的黑色或彩色分组框、模块框会保留。
 
@@ -108,7 +113,7 @@ python3 python/render.py 输出.svg 输出.png 3000                # 用 Chrome 
 - “选中图元”区域依赖 EDA 图元 ID 与 SVG 元素 ID 对应；对不上时退回 API 坐标换算（y 轴翻转假设，未校准），可改用手动框选
 
 ## English summary
-**eda-sch-beautify** post-processes schematic SVG exported from JLCEDA / EasyEDA Pro: KiCad-style semicircle hop-overs at unconnected wire crossings, junction dots recolored to the wire color, gray "unconnected" markers removed, CJK text in SimSun while Latin stays Times New Roman, the sheet background stripped, optional monochrome output (black on white / white on black), and PNG export at 1x/2x/4x with transparent / white / KiCad paper (#F5F4EF) / black background and region export (selection or drag-box). Available as an EasyEDA Pro extension (`extension/`; `npm run setup && npm run build`, then import the `.eext` via the Extension Manager) and as a Python CLI (`python/eda_sch_beautify.py`). The schematic itself is never modified. License: MIT (SDK-derived scaffolding under Apache-2.0, see NOTICE).
+**eda-sch-beautify** post-processes schematic SVG exported from JLCEDA / EasyEDA Pro: KiCad-style semicircle hop-overs at unconnected wire crossings, junction dots recolored to the wire color, gray "unconnected" markers removed, CJK text in SimSun while Latin stays Times New Roman, the sheet background stripped, optional monochrome output (black on white / white on black), and PNG export at 1x/2x/4x/6x with transparent / white / KiCad paper (#F5F4EF) / black background and region export (selection or drag-box). Available as an EasyEDA Pro extension (`extension/`; `npm run setup && npm run build`, then import the `.eext` via the Extension Manager) and as a Python CLI (`python/eda_sch_beautify.py`). The schematic itself is never modified. License: MIT (SDK-derived scaffolding under Apache-2.0, see NOTICE).
 
 ---
 

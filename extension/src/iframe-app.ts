@@ -6,9 +6,9 @@ declare const eda: any;
 const E: any = (typeof eda !== 'undefined') ? eda : (window.parent as any)?.eda;
 const $ = (id: string) => document.getElementById(id) as any;
 
-interface Settings { radius: number; scale: number; bg: 'transparent' | 'white' | 'paper' | 'black'; region: 'page' | 'selection' | 'manual'; margin: number; junctionColor: boolean; removeMarkers: boolean; font: boolean; close: 'shrink' | 'merge'; exportTheme: 'Default' | 'Black on White' | 'White on Black' }
-const DEF: Settings = { radius: 0, scale: 4, bg: 'paper', region: 'page', margin: 10, junctionColor: true, removeMarkers: true, font: true, close: 'shrink', exportTheme: 'Default' };
-const BG: Record<string, string | null> = { transparent: null, white: '#FFFFFF', paper: '#F5F4EF', black: '#000000' }; // KiCad 默认原理图背景 245,244,239
+interface Settings { radius: number; scale: number; bg: 'transparent' | 'white' | 'paper' | 'lightgray' | 'darkgray' | 'black'; region: 'page' | 'selection' | 'manual'; dragMode: 'select' | 'pan'; margin: number; junctionColor: boolean; removeMarkers: boolean; font: boolean; close: 'shrink' | 'merge'; exportTheme: 'Default' | 'Black on White' | 'White on Black' }
+const DEF: Settings = { radius: 0, scale: 4, bg: 'paper', region: 'page', dragMode: 'select', margin: 10, junctionColor: true, removeMarkers: true, font: true, close: 'shrink', exportTheme: 'Default' };
+const BG: Record<string, string | null> = { transparent: null, white: '#FFFFFF', paper: '#F5F4EF', lightgray: '#F2F2F2', darkgray: '#1E1E1E', black: '#000000' }; // KiCad 默认原理图背景 245,244,239
 
 let S: Settings = { ...DEF }; let srcSvg = ''; let outSvg = ''; let manual: Rect | null = null; let selRect: Rect | null = null; let fileBase = 'schematic';
 
@@ -29,12 +29,18 @@ async function saveSettings() {
 	catch {}
 }
 function readForm() {
-	S.radius = Number($('radius').value) || 0; S.scale = Number($('scale').value) || 4; S.bg = $('bg').value; S.margin = Number($('margin').value) || 0;
+	S.radius = Number($('radius').value) || 0; S.scale = Number((document.querySelector('input[name=scale]:checked') as any)?.value) || 4; S.bg = (document.querySelector('input[name=bg]:checked') as any)?.value || 'paper'; S.margin = Number($('margin').value) || 0;
 	S.region = (document.querySelector('input[name=region]:checked') as any)?.value || 'page';
+	S.dragMode = (document.querySelector('input[name=dragMode]:checked') as any)?.value === 'pan' ? 'pan' : 'select';
 	S.junctionColor = $('jc').checked; S.removeMarkers = $('rm').checked; S.font = $('font').checked; S.close = $('close').value; S.exportTheme = $('etheme').value;
 }
 function writeForm() {
-	$('radius').value = S.radius; $('scale').value = S.scale; $('bg').value = S.bg; $('margin').value = S.margin;
+	S.scale = [1, 2, 4, 6].includes(S.scale) ? S.scale : 4;
+	S.bg = ['paper', 'white', 'lightgray', 'darkgray', 'black', 'transparent'].includes(S.bg) ? S.bg : 'paper';
+	$('radius').value = S.radius; $('margin').value = S.margin;
+	(document.querySelector(`input[name=bg][value="${S.bg}"]`) as any).checked = true;
+	(document.querySelector(`input[name=scale][value="${S.scale}"]`) as any).checked = true;
+	(document.querySelector(`input[name=dragMode][value="${S.dragMode === 'pan' ? 'pan' : 'select'}"]`) as any).checked = true;
 	(document.querySelector(`input[name=region][value=${S.region}]`) as any).checked = true;
 	$('jc').checked = S.junctionColor; $('rm').checked = S.removeMarkers; $('font').checked = S.font; $('close').value = S.close; $('etheme').value = S.exportTheme;
 }
@@ -236,36 +242,83 @@ async function renderPng(svg: string): Promise<Blob> {
 }
 
 function setupDrag() {
-	const wrap = $('wrap'); let start: [number, number] | null = null; let pan: [number, number, number, number] | null = null; let space = false;
+	const wrap = $('wrap');
+	let start: [number, number] | null = null;
+	let pan: [number, number, number, number] | null = null;
+	let space = false;
+	let modDown = false;
+	let moved = false;
+	let prevRegion: Settings['region'] = 'page';
+	const dragMode = () => (document.querySelector('input[name=dragMode]:checked') as any)?.value === 'pan' ? 'pan' : 'select';
+	const syncCursor = () => {
+		wrap.classList.toggle('pan-ready', !pan && (space || (dragMode() === 'pan' && !modDown)));
+		wrap.classList.toggle('panning', !!pan);
+	};
 	const toSvg = (ev: MouseEvent): [number, number] => {
 		const r = wrap.getBoundingClientRect();
 		return [G.vb[0] + (ev.clientX - r.left - panX) / zoom * G.k, G.vb[1] + (ev.clientY - r.top - panY) / zoom * G.k];
 	};
-	const panMode = (ev: MouseEvent) => space || ev.button === 1 || $('mode').value === 'pan' || !$('rManual').checked;
-	window.addEventListener('keydown', (e) => { if (e.code === 'Space' && (e.target as any)?.tagName !== 'INPUT') { space = true; wrap.style.cursor = 'grab'; e.preventDefault(); } });
-	window.addEventListener('keyup', (e) => { if (e.code === 'Space') { space = false; wrap.style.cursor = ''; } });
+	// Ctrl / ⌘ + 左键拖动是临时框选，优先于“平移”模式（空格仍可临时平移）
+	const panMode = (ev: MouseEvent) => space || ev.button === 1 || (dragMode() === 'pan' && !(ev.ctrlKey || ev.metaKey));
+	window.addEventListener('keydown', (e) => {
+		const tag = (e.target as any)?.tagName;
+		if (e.code === 'Space' && !/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(tag)) { space = true; syncCursor(); e.preventDefault(); }
+		if (e.key === 'Control' || e.key === 'Meta') { modDown = true; syncCursor(); }
+	});
+	window.addEventListener('keyup', (e) => {
+		if (e.code === 'Space') { space = false; syncCursor(); }
+		if (e.key === 'Control' || e.key === 'Meta') { modDown = false; syncCursor(); }
+	});
+	window.addEventListener('blur', () => { space = false; modDown = false; syncCursor(); });
 	wrap.addEventListener('mousedown', (ev: MouseEvent) => {
 		ev.preventDefault();
-		if (panMode(ev)) { pan = [ev.clientX, ev.clientY, panX, panY]; wrap.style.cursor = 'grabbing'; }
-		else start = toSvg(ev);
+		if (panMode(ev)) { pan = [ev.clientX, ev.clientY, panX, panY]; syncCursor(); }
+		else { start = toSvg(ev); moved = false; prevRegion = S.region; }
 	});
 	window.addEventListener('mousemove', (ev: MouseEvent) => {
 		if (pan) { panX = pan[2] + ev.clientX - pan[0]; panY = pan[3] + ev.clientY - pan[1]; userView = true; applyView(); return; }
-		if (!start) return; const p = toSvg(ev);
-		manual = [Math.min(start[0], p[0]), Math.min(start[1], p[1]), Math.abs(p[0] - start[0]), Math.abs(p[1] - start[1])]; updateSelBox();
+		if (!start) return;
+		const p = toSvg(ev);
+		moved = true;
+		manual = [Math.min(start[0], p[0]), Math.min(start[1], p[1]), Math.abs(p[0] - start[0]), Math.abs(p[1] - start[1])];
+		// 在“框选”模式下直接拖动画框，并自动把导出范围切到“手动框选”
+		if (S.region !== 'manual') { S.region = 'manual'; $('rManual').checked = true; saveSettings(); }
+		updateSelBox();
 	});
 	window.addEventListener('mouseup', () => {
-		if (pan) { pan = null; wrap.style.cursor = space ? 'grab' : ''; }
-		if (start) { start = null; if (manual && manual[2] < 1) manual = null; updateSelBox(); }
+		if (pan) { pan = null; syncCursor(); }
+		if (start) {
+			start = null;
+			if (moved && (!manual || manual[2] < 1 || manual[3] < 1)) {
+				manual = null;
+				if (S.region === 'manual' && prevRegion !== 'manual') { S.region = prevRegion; writeForm(); saveSettings(); }
+			}
+			updateSelBox();
+		}
 	});
 	wrap.addEventListener('wheel', (ev: WheelEvent) => {
 		ev.preventDefault(); // 指数缩放：触控板的连续小增量不会一下放大很多；ctrl+滚轮是触控板捏合
 		const f = Math.exp(-ev.deltaY * (ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? 400 : 1) * (ev.ctrlKey ? 0.012 : 0.0018));
 		const r = wrap.getBoundingClientRect(); zoomAt(Math.min(2, Math.max(0.5, f)), ev.clientX - r.left, ev.clientY - r.top);
 	}, { passive: false });
+	wrap.addEventListener('contextmenu', (ev: MouseEvent) => { if (ev.ctrlKey || ev.metaKey) ev.preventDefault(); });
 	$('zIn').onclick = () => zoomAt(1.25); $('zOut').onclick = () => zoomAt(0.8); $('zFit').onclick = () => fit();
 	$('z100').onclick = () => { const w = $('wrap'); const c = [(w.clientWidth / 2 - panX) / zoom, (w.clientHeight / 2 - panY) / zoom]; zoom = 1; panX = w.clientWidth / 2 - c[0]; panY = w.clientHeight / 2 - c[1]; userView = true; applyView(); };
 	window.addEventListener('resize', () => { if (userView) applyView(); else fit(); }); // 用户手动缩放/平移过就保留视图，只补清晰度
+	document.querySelectorAll('input[name=dragMode]').forEach(el => el.addEventListener('change', () => { readForm(); saveSettings(); syncCursor(); }));
+	$('rManual').addEventListener('click', () => { // 已经选中“手动框选”时再点一次，也切回框选模式
+		(document.querySelector('input[name=dragMode][value=select]') as any).checked = true;
+		S.dragMode = 'select'; saveSettings(); syncCursor();
+	});
+	document.querySelectorAll('input[name=region]').forEach(el => el.addEventListener('change', () => {
+		readForm();
+		if (S.region === 'manual') { // 手动框选必须用左键拖动，顺手切回框选模式
+			(document.querySelector('input[name=dragMode][value=select]') as any).checked = true;
+			S.dragMode = 'select';
+		}
+		saveSettings(); syncCursor(); updateSelBox();
+	}));
+	syncCursor();
 }
 
 // ---------- 主题 ----------
@@ -273,7 +326,9 @@ async function applyTheme() {
 	let t: string | undefined;
 	try { t = await E?.sys_Window?.getCurrentTheme?.(); }
 	catch {}
-	if (t !== 'dark' && t !== 'light') t = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+	t = t?.toLowerCase();
+	// 嘉立创 EDA 专业版本身是深色界面；取不到主题时直接按深色显示，避免先闪一下浅色
+	if (t !== 'dark' && t !== 'light') t = 'dark';
 	if (document.documentElement.dataset.theme !== t) document.documentElement.dataset.theme = t;
 }
 /** 不轮询：系统主题变化、面板重新获得焦点 / 可见时各检查一次 */
@@ -285,7 +340,7 @@ function watchTheme() {
 }
 /** 黑底白线配黑色背景才看得见白线；离开黑底白线时把黑色背景换回纸色 */
 function syncBgToTheme() {
-	if (S.exportTheme === 'White on Black' && (S.bg === 'paper' || S.bg === 'white')) S.bg = 'black';
+	if (S.exportTheme === 'White on Black' && (S.bg === 'paper' || S.bg === 'white' || S.bg === 'lightgray')) S.bg = 'black';
 	else if (S.exportTheme !== 'White on Black' && S.bg === 'black') S.bg = 'paper';
 	writeForm();
 }
@@ -295,9 +350,9 @@ async function main() {
 	loadSettings(); writeForm(); setupDrag();
 	$('etheme').addEventListener('change', async () => { readForm(); syncBgToTheme(); await saveSettings(); try { srcSvg = await exportSvgFromEda(); fitted = false; await refresh(); } catch (e) { log((e as Error).message, true); } });
 	for (const id of ['radius', 'jc', 'rm', 'font', 'close']) $(id).addEventListener('change', () => refresh()); // 影响美化结果，需要重跑算法
-	$('bg').addEventListener('change', restyle); // 只影响背景
-	for (const id of ['scale', 'margin']) $(id).addEventListener('change', () => { readForm(); saveSettings(); updateSelBox(); }); // 只影响导出
-	document.querySelectorAll('input[name=region]').forEach(el => el.addEventListener('change', () => { readForm(); saveSettings(); updateSelBox(); }));
+	document.querySelectorAll('input[name=bg]').forEach(el => el.addEventListener('change', restyle)); // 只影响背景
+	$('margin').addEventListener('change', () => { readForm(); saveSettings(); updateSelBox(); }); // 只影响导出
+	document.querySelectorAll('input[name=scale]').forEach(el => el.addEventListener('change', () => { readForm(); saveSettings(); updateSelBox(); }));
 	$('btnSel').onclick = () => useSelection();
 	$('btnReload').onclick = async () => { try { log('正在重新读取原理图…', false, true); srcSvg = await exportSvgFromEda(); await refresh(); log('已重新读取当前图页'); } catch (e) { log((e as Error).message, true); } };
 	$('btnSvg').onclick = async () => { try { log('正在生成并保存 SVG…', false, true); await save(new Blob([finalSvg()], { type: 'image/svg+xml' }), buildFileName(fileBase, 'svg')); log('SVG 已保存'); } catch (e) { log(`保存 SVG 失败：${(e as Error).message}`, true); } };

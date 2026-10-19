@@ -1,85 +1,97 @@
 <!doctype html>
-<html lang="zh-Hans" data-theme="light">
+<html lang="zh-Hans" data-theme="dark">
 <head>
 <meta charset="utf-8" />
 <title>原理图美化导出</title>
 <style>
   :root {
-    --bg: #f8fafc;
+    color-scheme: light;
+    --bg: #f4f4f5;
     --card-bg: #ffffff;
-    --card-border: #e2e8f0;
-    --fg: #0f172a;
-    --muted: #64748b;
+    --card-border: #e4e4e7;
+    --fg: #18181b;
+    --muted: #71717a;
     --field-bg: #ffffff;
-    --field-border: #cbd5e1;
-    --field-fg: #0f172a;
+    --field-border: #d4d4d8;
+    --field-fg: #18181b;
     --accent: #2563eb;
     --accent-hover: #1d4ed8;
     --accent-light: #eff6ff;
     --accent-border: #bfdbfe;
     --btn-sec-bg: #ffffff;
-    --btn-sec-border: #cbd5e1;
-    --btn-sec-hover: #f1f5f9;
+    --btn-sec-border: #d4d4d8;
+    --btn-sec-hover: #f4f4f5;
     --err: #dc2626;
-    --tag-bg: #f1f5f9;
-    --tag-border: #e2e8f0;
-    --chk1: #e2e8f0;
-    --chk2: #ffffff;
+    --tag-bg: #f4f4f5;
+    --tag-border: #e4e4e7;
+    --seg-active-bg: #ffffff;
+    --chk1: #e9e9eb;
+    --chk2: #fafafa;
     --sel-border: #2563eb;
     --sel-bg: rgba(37, 99, 235, 0.08);
+    --toolbar-bg: rgba(255, 255, 255, 0.94);
+    --toolbar-border: rgba(228, 228, 231, 0.85);
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
   }
   html[data-theme=dark] {
-    --bg: #141517;
-    --card-bg: #1c1d21;
-    --card-border: #2d3039;
-    --fg: #f1f5f9;
-    --muted: #94a3b8;
-    --field-bg: #24272e;
-    --field-border: #3b404d;
-    --field-fg: #f1f5f9;
-    --accent: #3b82f6;
-    --accent-hover: #60a5fa;
-    --accent-light: rgba(59, 130, 246, 0.15);
-    --accent-border: #2563eb;
-    --btn-sec-bg: #24272e;
-    --btn-sec-border: #373c47;
-    --btn-sec-hover: #2e323b;
-    --err: #ef4444;
-    --tag-bg: #23262e;
-    --tag-border: #323742;
-    --chk1: #24262c;
-    --chk2: #1b1c20;
-    --sel-border: #3b82f6;
-    --sel-bg: rgba(59, 130, 246, 0.12);
+    color-scheme: dark;
+    --bg: #0f0f10;
+    --card-bg: #19191a;
+    --card-border: #2c2c2e;
+    --fg: #eeeeef;
+    --muted: #9a9a9e;
+    --field-bg: #232325;
+    --field-border: #3b3b3e;
+    --field-fg: #eeeeef;
+    --accent: #4d8df6;
+    --accent-hover: #6ba0f8;
+    --accent-light: rgba(77, 141, 246, 0.14);
+    --accent-border: #3568b4;
+    --btn-sec-bg: #232325;
+    --btn-sec-border: #3b3b3e;
+    --btn-sec-hover: #2c2c2f;
+    --err: #ef5350;
+    --tag-bg: #212123;
+    --tag-border: #333336;
+    --seg-active-bg: #36363a;
+    --chk1: #222224;
+    --chk2: #171719;
+    --sel-border: #4d8df6;
+    --sel-bg: rgba(77, 141, 246, 0.12);
+    --toolbar-bg: rgba(25, 25, 26, 0.94);
+    --toolbar-border: rgba(44, 44, 46, 0.9);
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
   }
   @media (prefers-color-scheme: dark) {
     html:not([data-theme=light]) {
-      --bg: #141517;
-      --card-bg: #1c1d21;
-      --card-border: #2d3039;
-      --fg: #f1f5f9;
-      --muted: #94a3b8;
-      --field-bg: #24272e;
-      --field-border: #3b404d;
-      --field-fg: #f1f5f9;
-      --accent: #3b82f6;
-      --accent-hover: #60a5fa;
-      --accent-light: rgba(59, 130, 246, 0.15);
-      --accent-border: #2563eb;
-      --btn-sec-bg: #24272e;
-      --btn-sec-border: #373c47;
-      --btn-sec-hover: #2e323b;
-      --err: #ef4444;
-      --tag-bg: #23262e;
-      --tag-border: #323742;
-      --chk1: #24262c;
-      --chk2: #1b1c20;
-      --sel-border: #3b82f6;
-      --sel-bg: rgba(59, 130, 246, 0.12);
+      color-scheme: dark;
+      --bg: #0f0f10;
+      --card-bg: #19191a;
+      --card-border: #2c2c2e;
+      --fg: #eeeeef;
+      --muted: #9a9a9e;
+      --field-bg: #232325;
+      --field-border: #3b3b3e;
+      --field-fg: #eeeeef;
+      --accent: #4d8df6;
+      --accent-hover: #6ba0f8;
+      --accent-light: rgba(77, 141, 246, 0.14);
+      --accent-border: #3568b4;
+      --btn-sec-bg: #232325;
+      --btn-sec-border: #3b3b3e;
+      --btn-sec-hover: #2c2c2f;
+      --err: #ef5350;
+      --tag-bg: #212123;
+      --tag-border: #333336;
+      --seg-active-bg: #36363a;
+      --chk1: #222224;
+      --chk2: #171719;
+      --sel-border: #4d8df6;
+      --sel-bg: rgba(77, 141, 246, 0.12);
+      --toolbar-bg: rgba(25, 25, 26, 0.94);
+      --toolbar-border: rgba(44, 44, 46, 0.9);
       --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
       --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
     }
@@ -97,12 +109,13 @@
   /* 顶部配置面板区 */
   .panel-header {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 8px;
     padding: 8px 10px 4px;
     flex-shrink: 0;
   }
   .card {
+    min-width: 0;
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 8px;
@@ -124,7 +137,13 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
+    min-width: 0;
     gap: 6px 10px;
+  }
+  .row-label {
+    font-size: 11.5px;
+    color: var(--muted);
+    white-space: nowrap;
   }
   .row + .row {
     margin-top: 5px;
@@ -134,6 +153,7 @@
   .field-group {
     display: inline-flex;
     align-items: center;
+    min-width: 0;
     gap: 4px;
     font-size: 12px;
   }
@@ -152,6 +172,7 @@
     box-shadow: 0 0 0 2px var(--accent-light);
   }
   input[type=number] { width: 52px; text-align: center; }
+  select { max-width: 100%; }
   option { background: var(--field-bg); color: var(--field-fg); }
 
   /* 胶囊复选框 (Checkbox Tag / Chip) */
@@ -190,6 +211,7 @@
   .segmented label {
     display: inline-flex;
     align-items: center;
+    white-space: nowrap;
     padding: 2px 8px;
     border-radius: 4px;
     font-size: 11.5px;
@@ -200,11 +222,12 @@
   }
   .segmented label input[type=radio] { display: none; }
   .segmented label:has(input:checked) {
-    background: var(--card-bg);
+    background: var(--seg-active-bg);
     color: var(--fg);
     font-weight: 500;
     box-shadow: var(--shadow-sm);
   }
+  .segmented.compact label { padding: 1px 7px; font-size: 11px; }
 
   /* 基础按钮 */
   button {
@@ -259,15 +282,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 10px;
     padding: 4px 8px;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.94); /* 不用 backdrop-filter：它盖在持续移动的画布上，每帧都要重新模糊 */
-    border: 1px solid rgba(226, 232, 240, 0.8);
+    background: var(--toolbar-bg); /* 不用 backdrop-filter：它盖在持续移动的画布上，每帧都要重新模糊 */
+    border: 1px solid var(--toolbar-border);
     box-shadow: var(--shadow-md);
-  }
-  html[data-theme=dark] .floating-toolbar {
-    background: rgba(28, 29, 33, 0.94);
-    border: 1px solid rgba(45, 48, 57, 0.8);
   }
   .tb-group {
     display: flex;
@@ -289,8 +310,10 @@
     color: var(--muted);
     display: flex;
     align-items: center;
+    margin-left: auto;
     gap: 3px;
   }
+  .tb-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
   kbd {
     background: var(--tag-bg);
     border: 1px solid var(--tag-border);
@@ -311,6 +334,8 @@
     user-select: none;
     cursor: crosshair;
   }
+  #wrap.pan-ready { cursor: grab; }
+  #wrap.panning { cursor: grabbing; }
   #layer {
     position: absolute;
     left: 0;
@@ -397,6 +422,11 @@
     gap: 6px;
     flex-shrink: 0;
   }
+
+  @media (max-width: 680px) {
+    .panel-header { grid-template-columns: minmax(0, 1fr); }
+    .kbd-tip { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -438,35 +468,40 @@
   <div class="card">
     <div class="card-title">导出区域与输出格式</div>
     <div class="row">
-      <span style="font-size:11.5px;color:var(--muted)">导出范围:</span>
+      <span class="row-label">导出范围:</span>
       <div class="segmented">
         <label><input type="radio" name="region" value="page">整页</label>
         <label><input type="radio" name="region" value="selection">选中图元</label>
         <label><input type="radio" name="region" value="manual" id="rManual">手动框选</label>
       </div>
       <button id="btnSel" type="button" class="btn-sec" style="padding:1px 6px;font-size:11px">读取选中</button>
-      <div class="field-group" style="margin-left:auto">
-        <span>边距</span>
-        <input id="margin" type="number" min="0" step="5" style="width:44px">
-      </div>
     </div>
     <div class="row" style="margin-top:6px">
       <div class="field-group">
-        <span>PNG 倍率</span>
-        <select id="scale">
-          <option value="1">1x 标清</option>
-          <option value="2">2x 高清</option>
-          <option value="4">4x 超清</option>
-        </select>
+        <span title="仅“选中图元”导出时生效">边距</span>
+        <input id="margin" type="number" min="0" step="5" style="width:44px">
       </div>
       <div class="field-group">
+        <span>PNG 倍率</span>
+        <div class="segmented compact">
+          <label title="1x 标清"><input type="radio" name="scale" value="1">1x</label>
+          <label title="2x 高清"><input type="radio" name="scale" value="2">2x</label>
+          <label title="4x 超清"><input type="radio" name="scale" value="4">4x</label>
+          <label title="6x 极致（超大图受浏览器画布上限影响会自动降采样）"><input type="radio" name="scale" value="6">6x</label>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <div class="field-group" style="flex:1 1 100%">
         <span>背景底色</span>
-        <select id="bg">
-          <option value="paper">KiCad 纸色 (#F5F4EF)</option>
-          <option value="white">纯白 (#FFFFFF)</option>
-          <option value="black">纯黑 (#000000，配黑底白线)</option>
-          <option value="transparent">完全透明 (无底色)</option>
-        </select>
+        <div class="segmented compact">
+          <label title="KiCad 纸色 #F5F4EF"><input type="radio" name="bg" value="paper">纸色</label>
+          <label title="纯白 #FFFFFF"><input type="radio" name="bg" value="white">白</label>
+          <label title="浅灰 #F2F2F2"><input type="radio" name="bg" value="lightgray">浅灰</label>
+          <label title="深灰 #1E1E1E"><input type="radio" name="bg" value="darkgray">深灰</label>
+          <label title="纯黑 #000000"><input type="radio" name="bg" value="black">黑</label>
+          <label title="完全透明（无底色）"><input type="radio" name="bg" value="transparent">透明</label>
+        </div>
       </div>
     </div>
   </div>
@@ -483,15 +518,15 @@
       <button id="z100" class="tb-btn">100%</button>
       <span style="height:12px;width:1px;background:var(--card-border);margin:0 4px"></span>
       <div class="field-group">
-        <span style="font-size:11px;color:var(--muted)">拖动:</span>
-        <select id="mode" style="padding:1px 4px;font-size:11px">
-          <option value="select">框选模式</option>
-          <option value="pan">平移模式</option>
-        </select>
+        <span class="tb-label">拖动</span>
+        <div class="segmented compact">
+          <label title="左键拖动画框，自动切到“手动框选”"><input type="radio" name="dragMode" value="select">框选</label>
+          <label title="左键拖动平移；空格或中键随时可用"><input type="radio" name="dragMode" value="pan">平移</label>
+        </div>
       </div>
     </div>
-    <div class="kbd-tip">
-      <kbd>滚轮</kbd> 缩放 · 按住 <kbd>空格</kbd> 或中键平移
+    <div class="kbd-tip" title="按住 Ctrl 或 ⌘ 再左键拖动，可临时切到框选">
+      <kbd>滚轮</kbd> 缩放 · <kbd>空格</kbd>/中键平移 · <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+拖动框选
     </div>
   </div>
 
